@@ -59,3 +59,26 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm test
+
+  supabase-smoke:
+    name: Opt-in live Supabase Phase 1A smoke
+    if: >-
+      github.repository == 'abanerjee23/UnLoop' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/codex/phase-1a' &&
+      vars.RUN_SUPABASE_SMOKE == 'true'
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.11.7'
+      - run: uv sync --frozen
+      - name: Isolated synthetic TLS PostgreSQL and HTTP restart smoke
+        env:
+          SUPABASE_SMOKE_DATABASE_URL: ${{ secrets.SUPABASE_SMOKE_DATABASE_URL }}
+        run: uv run --frozen python -m scripts.supabase_smoke

@@ -214,3 +214,21 @@ Phase 0 should establish the runnable scaffold and labelled Meal cases. Validate
 **Improve — Keep:** SQL null semantics and owner-versus-persona constraints need explicit negative database tests; passing API seeds alone did not prove those invariants. Deterministic intake conservatively asks for correction instead of discarding unsupported date signals. No extraction quality, model cost or provider integration is inferred.
 
 **Remaining gate:** verify this increment's hosted CI (Cloud GitHub API returned Forbidden), and separately verify a securely configured non-production Supabase connection. Do not merge or start 1B/1C in this task. Protected build plan/fixtures/held-out separation remain unchanged; no prompt tuning or correction learning.
+
+### ITER-006 — Prepare isolated opt-in Supabase persistence validation
+
+**Date / phase:** 7 October 2026 / Phase 1A validation
+
+**Status:** Prepared and locally validated; live Supabase gate UNVERIFIED
+
+**Previous cycle:** ITER-005
+
+**Frame:** Cloud cannot directly reach the project's public PostgreSQL target through a supported exact TCP grant. Hypothesis: a branch-restricted, opt-in GitHub Actions job can validate live persistence using a privately supplied repository secret without moving the Cloud vault value or changing network infrastructure.
+
+**Success criteria:** real FastAPI HTTP confirmation/list/re-fetch/restart/owner/manager/grade checks in a unique migrated schema; target and TLS fail closed; public cannot be the migration fallback; logs never expose credentials/exception strings; normal failure cleans only the new schema; local test mode cannot substitute for live-provider success.
+
+**Build:** `scripts/supabase_smoke.py`, schema/TLS/timeout safety in existing helper, targeted guard/real-native-PostgreSQL tests and a restricted opt-in live job in existing `Checks` workflow. Only branch pushes after ordinary checks pass can use the secret; PR/fork/ordinary jobs cannot. [Concrete private setup/trigger instructions](../validation/SUPABASE_PHASE_1A_SMOKE.md) preserve the pending provider boundary.
+
+**Validate:** standalone local smoke passes with explicitly non-provider output. Full **113 backend tests and 7 browser tests / zero skips**, frozen sync, Ruff, 24-case fixture integrity / zero model runs, worker check and npm ci/build pass. Tests cover real subprocess restart, normal failure cleanup, non-TLS rejection, wrong-schema migration refusal and suppressed child failure logs. Mocked target/failure guards are not provider evidence.
+
+**Decision — Keep preparation:** live validation awaits user review, private repository secret and opt-in variable, then a harmless normal feature-branch push. No live schemas/data touched; no vault extraction/transfer, VPN/relay, merge, BUILD_PLAN/fixture changes or Phase 1B/1C work. The live Supabase gate remains UNVERIFIED until a recorded actual successful run.
