@@ -1,0 +1,70 @@
+"""Dedicated deterministic browser server: real HTTP/PostgreSQL, explicitly fake A1/FX.
+
+This file is excluded from the production image and is never an application flag.
+"""
+
+import os
+import sys
+from pathlib import Path
+from threading import Event, Thread
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+import uvicorn
+from postgres_test_support import isolated_database, isolated_schema
+from unloop import create_app
+from unloop.expense_worker import run_expense_once
+from unloop.worker import run_once
+
+from backend.tests.test_meals import TEST_LIMITS, TEST_POLICY, FakeExtractor
+
+
+class SyntheticFx:
+    def fetch(self, code, day):
+        return {
+            "currency": code,
+            "date": day.isoformat(),
+            "provider": "ecb",
+            "rate": "0.8",
+            "source": "https://api.frankfurter.dev/v2/providers/ecb",
+        }
+
+
+def main():
+    if not os.environ.get("TEST_DATABASE_URL"):
+        raise RuntimeError("Explicit test database required")
+    with isolated_database(os.environ["TEST_DATABASE_URL"]) as (url, engine):
+        app = create_app(
+            {
+                "DATABASE_URL": url,
+                "UNLOOP_TEST_SCHEMA": isolated_schema(engine),
+                "APP_ORIGIN": "http://127.0.0.1:5174",
+                "SESSION_COOKIE_SECURE": "false",
+            }
+        )
+        app.state.a1_settings = TEST_LIMITS
+        stop = Event()
+
+        def worker():
+            while not stop.is_set():
+                run_once(engine)
+                run_expense_once(
+                    engine,
+                    TEST_LIMITS,
+                    FakeExtractor({"mealType": None}),
+                    TEST_POLICY,
+                    SyntheticFx(),
+                )
+                stop.wait(0.2)
+
+        thread = Thread(target=worker, daemon=True)
+        thread.start()
+        try:
+            uvicorn.run(app, host="127.0.0.1", port=5002, log_level="warning", access_log=False)
+        finally:
+            stop.set()
+            thread.join(timeout=5)
+
+
+if __name__ == "__main__":
+    main()

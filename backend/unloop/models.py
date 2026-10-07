@@ -307,3 +307,169 @@ class GmailImport(Base):
     imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     sha256: Mapped[str] = mapped_column(String(64))
     review_required: Mapped[bool] = mapped_column(default=True)
+
+
+class Expense(Base):
+    __tablename__ = "expenses"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["session_id", "report_id"],
+            ["reports.session_id", "reports.id"],
+            ondelete="CASCADE",
+            name="expense_report_owner",
+        ),
+        ForeignKeyConstraint(
+            ["session_id", "document_id"],
+            ["documents.session_id", "documents.id"],
+            ondelete="CASCADE",
+            name="expense_document_owner",
+        ),
+        UniqueConstraint("session_id", "document_id", name="expense_receipt_once"),
+        UniqueConstraint("session_id", "id", name="expense_owner_id"),
+        CheckConstraint("version > 0", name="expense_version"),
+        CheckConstraint(
+            "state IN ('queued','processing','needs_information','review','failed','unsupported',"
+            "'unreadable','policy_inactive','conversion_pending','excluded','conflict')",
+            name="expense_state",
+        ),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID]
+    report_id: Mapped[UUID]
+    document_id: Mapped[UUID]
+    version: Mapped[int] = mapped_column(default=1)
+    revision_id: Mapped[UUID] = mapped_column(default=uuid4)
+    state: Mapped[str] = mapped_column(String(32), default="queued")
+    facts: Mapped[dict] = mapped_column(JSON, default=dict)
+    locks: Mapped[list] = mapped_column(JSON, default=list)
+    provenance: Mapped[dict] = mapped_column(JSON, default=dict)
+    confirmed: Mapped[bool] = mapped_column(default=False)
+    issues: Mapped[list] = mapped_column(JSON, default=list)
+    calculation: Mapped[dict | None] = mapped_column(JSON)
+    failure_code: Mapped[str | None] = mapped_column(String(40))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ExpenseRevision(Base):
+    __tablename__ = "expense_revisions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["session_id", "expense_id"],
+            ["expenses.session_id", "expenses.id"],
+            ondelete="CASCADE",
+            name="revision_expense_owner",
+        ),
+        UniqueConstraint("expense_id", "version", name="expense_revision_once"),
+        UniqueConstraint("expense_id", "id", name="revision_expense_id"),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    session_id: Mapped[UUID]
+    expense_id: Mapped[UUID]
+    version: Mapped[int]
+    snapshot: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ExpenseJob(Base):
+    __tablename__ = "expense_jobs"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["session_id", "expense_id"],
+            ["expenses.session_id", "expenses.id"],
+            ondelete="CASCADE",
+            name="job_expense_owner",
+        ),
+        UniqueConstraint("expense_id", "revision_id", "kind", name="expense_job_once"),
+        UniqueConstraint("id", "revision_id", name="job_revision_id"),
+        ForeignKeyConstraint(
+            ["expense_id", "revision_id"],
+            ["expense_revisions.expense_id", "expense_revisions.id"],
+            ondelete="CASCADE",
+            name="job_expense_revision",
+        ),
+        CheckConstraint("kind IN ('extract','calculate')", name="expense_job_kind"),
+        CheckConstraint(
+            "state IN ('queued','processing','complete','failed')", name="expense_job_state"
+        ),
+        CheckConstraint("attempts BETWEEN 0 AND 3", name="expense_job_attempts"),
+        CheckConstraint(
+            "(state = 'processing' AND lease_token IS NOT NULL AND lease_until IS NOT NULL) "
+            "OR (state != 'processing' AND lease_token IS NULL AND lease_until IS NULL)",
+            name="expense_job_lease",
+        ),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID]
+    expense_id: Mapped[UUID]
+    revision_id: Mapped[UUID] = mapped_column()
+    kind: Mapped[str] = mapped_column(String(16))
+    state: Mapped[str] = mapped_column(String(16), default="queued")
+    attempts: Mapped[int] = mapped_column(default=0)
+    available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    lease_token: Mapped[UUID | None]
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    failure_code: Mapped[str | None] = mapped_column(String(40))
+    reserved_usd: Mapped[str | None] = mapped_column(String(40))
+    call_count: Mapped[int] = mapped_column(default=0)
+
+
+class ExtractionSuggestion(Base):
+    __tablename__ = "extraction_suggestions"
+    __table_args__ = (
+        UniqueConstraint("job_id", name="suggestion_job_once"),
+        ForeignKeyConstraint(
+            ["job_id", "revision_id"],
+            ["expense_jobs.id", "expense_jobs.revision_id"],
+            ondelete="CASCADE",
+            name="suggestion_job_revision",
+        ),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    job_id: Mapped[UUID] = mapped_column(ForeignKey("expense_jobs.id", ondelete="CASCADE"))
+    revision_id: Mapped[UUID] = mapped_column()
+    output: Mapped[dict] = mapped_column(JSON)
+    diagnostics: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ModelBudget(Base):
+    __tablename__ = "model_budgets"
+    key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    calls: Mapped[int] = mapped_column(default=0)
+    reserved_usd: Mapped[str] = mapped_column(String(40), default="0")
+
+
+class FxObservation(Base):
+    __tablename__ = "fx_observations"
+    __table_args__ = (
+        UniqueConstraint("currency", "rate_date", "provider", name="fx_observation_once"),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    currency: Mapped[str] = mapped_column(String(3))
+    rate_date: Mapped[date]
+    provider: Mapped[str] = mapped_column(String(32))
+    rate: Mapped[str] = mapped_column(String(60))
+    source: Mapped[str] = mapped_column(String(200))
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class MealPolicyVersion(Base):
+    __tablename__ = "meal_policy_versions"
+    id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    effective_date: Mapped[date]
+    rounding: Mapped[str] = mapped_column(String(40))
+    facts: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ExpenseCalculation(Base):
+    """Append-only numeric result tied to its exact fact revision."""
+
+    __tablename__ = "expense_calculations"
+    __table_args__ = (UniqueConstraint("revision_id", name="calculation_revision_once"),)
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    revision_id: Mapped[UUID] = mapped_column(
+        ForeignKey("expense_revisions.id", ondelete="CASCADE")
+    )
+    result: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -16,8 +16,11 @@ from unloop.database import Settings, postgres_engine
 from unloop.evidence import UploadBodyLimit
 from unloop.evidence import router as evidence_router
 from unloop.evidence_validation import MAX_REQUEST_BYTES
+from unloop.expenses import router as expense_router
+from unloop.extraction import A1Settings
 from unloop.gmail import router as gmail_router
 from unloop.gmail_provider import GmailFailure, GmailSettings, GoogleAdapter
+from unloop.meal_policy import MealPolicy
 
 
 def create_app(test_config: dict | None = None) -> FastAPI:
@@ -38,6 +41,9 @@ def create_app(test_config: dict | None = None) -> FastAPI:
 
     app = FastAPI(title="Unloop", lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.settings, app.state.engine = settings, engine
+    values = {**os.environ, **(test_config or {})}
+    app.state.a1_settings = A1Settings.load(values)
+    app.state.meal_policy = MealPolicy.load(values)
     app.state.gmail_settings = GmailSettings.load(
         {**os.environ, **(test_config or {})}, settings.app_origin
     )
@@ -166,6 +172,7 @@ def create_app(test_config: dict | None = None) -> FastAPI:
     app.include_router(router)
     app.include_router(evidence_router)
     app.include_router(gmail_router)
+    app.include_router(expense_router)
     static = os.environ.get("UNLOOP_STATIC_DIR")
     if static:
         root = Path(static).resolve()

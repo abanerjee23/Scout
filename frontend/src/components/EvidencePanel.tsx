@@ -89,7 +89,7 @@ export default function EvidencePanel({ report, session, source, refresh, onUplo
         {document.state === 'failed' && <><p className="w-muted">{document.failureCode}. Original retained; retry starts a new validation revision.</p><button className="w-text-button" disabled={busy} onClick={() => void retry(document.id)}>Retry validation</button></>}
         <a href={document.originalUrl}>Download original</a>
       </li>)}</ul>
-      <p className="w-muted">Validated means file checks passed. Extraction and expense amounts are not available yet.</p>
+      <p className="w-muted">Validated means file checks passed. Select a receipt in Expenses for separate bounded extraction; amounts are never produced by file validation.</p>
     </>}
   </section>;
 }

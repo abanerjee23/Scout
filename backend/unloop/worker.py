@@ -2,6 +2,8 @@
 
 import argparse
 import os
+import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -13,8 +15,12 @@ from sqlalchemy.orm import Session
 from unloop.database import Settings, postgres_engine
 from unloop.evidence import bounded_validation
 from unloop.evidence_validation import InvalidDocument
+from unloop.expense_worker import run_expense_once
+from unloop.extraction import A1Settings, AgentsExtractor
+from unloop.fx import HistoricalFx
 from unloop.gmail import cleanup_expired, run_scan_once
 from unloop.gmail_provider import GmailSettings, GoogleAdapter
+from unloop.meal_policy import MealPolicy
 from unloop.models import DemoSession, Document, DocumentBytes, EvidenceJob, GmailScan
 
 LEASE_SECONDS = 30
@@ -138,11 +144,12 @@ def main():
         help="Read bounded queue counts; not proof a worker is running",
     )
     parser.add_argument("--once", action="store_true", help="Process at most one due job")
+    parser.add_argument("--queue", choices=["all", "evidence", "expenses", "gmail"], default="all")
     args = parser.parse_args()
     if args.check:
         print(
             "Evidence worker ready: PostgreSQL leases, 3 attempts, 30s lease; "
-            "15s validation timeout; no AI."
+            "15s validation timeout; A1 paid calls disabled unless explicitly configured."
         )
         return
     settings = Settings.load()
@@ -154,10 +161,55 @@ def main():
     gmail_settings = GmailSettings.load(os.environ, settings.app_origin)
     adapter = GoogleAdapter(gmail_settings) if gmail_settings else None
 
+    a1_settings = A1Settings.load(os.environ)
+    extractor, policy, fx = (
+        AgentsExtractor(a1_settings),
+        MealPolicy.load(os.environ),
+        HistoricalFx(os.environ.get("OXR_APP_ID")),
+    )
+    scan_process = None
+
     def step():
+        nonlocal scan_process
         cleanup_expired(engine)
-        scan_work = run_scan_once(engine, gmail_settings, adapter) if gmail_settings else False
-        return run_once(engine) or scan_work
+        if args.queue == "gmail":
+            return run_scan_once(engine, gmail_settings, adapter) if gmail_settings else False
+        expense_work = (
+            run_expense_once(engine, a1_settings, extractor, policy, fx)
+            if args.queue in {"all", "expenses"}
+            else False
+        )
+        evidence_work = run_once(engine) if args.queue in {"all", "evidence"} else False
+        scan_work = False
+        if args.queue == "all" and gmail_settings:
+            if args.once:
+                scan_work = run_scan_once(engine, gmail_settings, adapter)
+            elif scan_process is None or scan_process.poll() is not None:
+                with Session(engine) as db:
+                    due = db.scalar(
+                        select(GmailScan.id)
+                        .where(
+                            or_(
+                                and_(
+                                    GmailScan.state == "queued",
+                                    GmailScan.available_at <= datetime.now(UTC),
+                                ),
+                                and_(
+                                    GmailScan.state == "processing",
+                                    GmailScan.lease_until <= datetime.now(UTC),
+                                ),
+                            )
+                        )
+                        .limit(1)
+                    )
+                if due:
+                    scan_process = subprocess.Popen(
+                        [sys.executable, "-m", "unloop.worker", "--queue", "gmail", "--once"],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                    scan_work = True
+        return expense_work or evidence_work or scan_work
 
     try:
         if args.diagnostics:
@@ -191,6 +243,13 @@ def main():
             1, "Worker stopped; verify private storage/configuration. No provider details logged.\n"
         )
     finally:
+        if scan_process is not None and scan_process.poll() is None:
+            scan_process.terminate()
+            try:
+                scan_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                scan_process.kill()
+                scan_process.wait(timeout=5)
         engine.dispose()
 
 

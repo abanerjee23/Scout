@@ -1,0 +1,11 @@
+# Phase 2 runtime fields (implementation in progress)
+
+No model calls or policy activation are enabled by default. Model runtime availability, quality, actual cost and provider account access remain unverified. `gpt-6-luna` is the fixed documented baseline; no fallback model.
+
+Private server/worker fields: `OPENAI_API_KEY`; `OXR_APP_ID` for optional exact-date USD-base historical fallback; `GALILEO_API_KEY` with nonsecret `GALILEO_PROJECT` and `GALILEO_LOG_STREAM`. Do not place keys in Vite variables, client responses, logs or commits.
+
+Paid calls additionally require explicit `A1_ENABLED=true`, `A1_MAX_CALLS` (1–1000 lifetime global reservations), `A1_MAX_SESSION_CALLS` (1–50), `A1_BUDGET_USD` (positive Decimal total ceiling), and positive reviewed `A1_INPUT_USD_PER_MILLION` / `A1_OUTPUT_USD_PER_MILLION`. No guessed USD10/25 choice or implicit price activation. Optional bounded `A1_MAX_INPUT_TOKENS` (default24000, max1000000 conservative preflight envelope; not measured input), `A1_MAX_OUTPUT_TOKENS` (default4000, 512–8000 hard model output setting), `A1_TIMEOUT_SECONDS` (default25, 5–30). Reservations count failed/unknown calls conservatively; worker retries cannot bypass persisted ceilings. Actual usage/cost estimates are retained separately. Receipt image/PDF tokenization for this account/model still needs live calibration; input limits are conservative configured admission estimates, not a provider token guarantee.
+
+Financial assessment is independently inactive unless the owner supplies all of `MEAL_POLICY_APPROVED=true`, `MEAL_POLICY_EFFECTIVE_DATE=YYYY-MM-DD` and `MEAL_POLICY_ROUNDING=ROUND_HALF_UP_LINE`. This convention means convert/round each full GBP line to two decimals with Decimal ROUND_HALF_UP, then cap and sum rounded claims. Its proposed effective date and rounding have NOT been approved. Tests may inject this candidate as synthetic configuration only. Ground Transport remains unsupported.
+
+Selected authorized receipt bytes only enter A1. No report purpose, grade, Gmail tokens, user conversation, arbitrary URLs or model tools. SDK tracing is disabled; Galileo receives content-free outcome/version/latency/usage/cost metadata through one explicit diagnostic path. Observability cannot change facts or calculations. Configure privately only after review; live gates remain parent-owned.

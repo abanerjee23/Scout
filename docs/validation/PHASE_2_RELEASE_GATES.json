@@ -1,0 +1,16 @@
+{
+  "gateVersion": "meal-release-1",
+  "frozenBeforeModelTuning": "2026-10-07",
+  "model": "gpt-6-luna",
+  "promptVersion": "meal-a1-1",
+  "schemaVersion": "0.1",
+  "datasetVersion": "0.1",
+  "criticalWrongAcceptedFinancialFacts": 0,
+  "requiredFieldAccuracyMinimum": "0.95",
+  "readableReviewableMinimum": "0.90",
+  "missingUnreadableAmbiguousPauseMinimum": "1.00",
+  "deterministicAcceptanceFailures": 0,
+  "provisionalUploadToReviewP95Seconds": 30,
+  "paidBudgetApproved": false,
+  "qualityBaselineMeasured": false
+}

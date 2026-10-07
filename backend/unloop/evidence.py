@@ -272,6 +272,19 @@ def original(document_id: UUID, db: Db, owner: Owner):
     )
 
 
+@router.get("/documents/{document_id}/preview")
+def preview(document_id: UUID, db: Db, owner: Owner):
+    document = own_document(db, owner, document_id)
+    return Response(
+        db.get(DocumentBytes, document.id).content,
+        media_type=document.mime_type,
+        headers={
+            "Content-Disposition": "inline",
+            "Content-Security-Policy": "sandbox; default-src 'none'",
+        },
+    )
+
+
 @router.post("/documents/{document_id}/retry")
 def retry(document_id: UUID, db: Db, owner: MutationOwner):
     document = own_document(db, owner, document_id)

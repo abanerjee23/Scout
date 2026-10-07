@@ -375,9 +375,7 @@ def test_phase1b_fresh_upgrade_downgrade_reupgrade_alignment(postgres):
             assert db.scalar(text("SELECT to_regclass('documents')")) is None
             command.upgrade(config, "head")
             command.check(config)
-            assert (
-                db.scalar(text("SELECT version_num FROM alembic_version")) == "0004_phase1c_gmail"
-            )
+            assert db.scalar(text("SELECT version_num FROM alembic_version")) == "0005_phase2_meals"
 
 
 @pytest.mark.parametrize(
