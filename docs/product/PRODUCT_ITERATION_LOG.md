@@ -219,7 +219,7 @@ Phase 0 should establish the runnable scaffold and labelled Meal cases. Validate
 
 **Date / phase:** 7 October 2026 / Phase 1A validation
 
-**Status:** Prepared and locally validated; live Supabase gate UNVERIFIED
+**Status:** Closed — live Supabase gate VERIFIED at `8a88ac5eb3c1c41954f7a93654576df18a163e05`
 
 **Previous cycle:** ITER-005
 
@@ -231,4 +231,18 @@ Phase 0 should establish the runnable scaffold and labelled Meal cases. Validate
 
 **Validate:** standalone local smoke passes with explicitly non-provider output. Full **113 backend tests and 7 browser tests / zero skips**, frozen sync, Ruff, 24-case fixture integrity / zero model runs, worker check and npm ci/build pass. Tests cover real subprocess restart, normal failure cleanup, non-TLS rejection, wrong-schema migration refusal and suppressed child failure logs. Mocked target/failure guards are not provider evidence.
 
-**Decision — Keep preparation:** live validation awaits user review, private repository secret and opt-in variable, then a harmless normal feature-branch push. No live schemas/data touched; no vault extraction/transfer, VPN/relay, merge, BUILD_PLAN/fixture changes or Phase 1B/1C work. The live Supabase gate remains UNVERIFIED until a recorded actual successful run.
+**Historical preparation decision (superseded by completion below):** live validation awaits user review, private repository secret and opt-in variable, then a harmless normal feature-branch push. No live schemas/data touched; no vault extraction/transfer, VPN/relay, merge, BUILD_PLAN/fixture changes or Phase 1B/1C work. The live Supabase gate remains UNVERIFIED until a recorded actual successful run.
+
+## Verified live provider evidence — 7 October 2026
+
+**VERIFIED** at exact commit `8a88ac5eb3c1c41954f7a93654576df18a163e05` on `codex/phase-1a`: [hosted push run 37652912234](https://github.com/abanerjee23/UnLoop/actions/runs/37652912234), [live job 112901079685](https://github.com/abanerjee23/UnLoop/actions/runs/37652912234/job/112901079685). At `2026-10-07T16:34:43.9015201Z` (17:34 Europe/London), the job emitted:
+
+```json
+{"status":"passed","mode":"live_supabase","project":"lchwjzunjqtakjdnzrze","tls":true,"migration":"0002_phase1a_hardening","http_restart_ownership_grade":true,"schema_cleanup":true}
+```
+
+Hosted backend **152 passed, zero skips** and Chromium **7 passed, zero skips**; Ruff, build, fixture integrity and worker checks passed. This proves synthetic isolated-schema persistence over client TLS, migration, explicit confirmation, list/re-fetch, process restart, ownership/persona/fixed-grade boundaries and cleanup against the live provider. It does not prove a deployed UI, production operation or public-schema migrations. Astra header intake remains deterministic; no live model was called. Phase 1B/1C are not implemented.
+
+After success the owner set `RUN_SUPABASE_SMOKE=false`; the repository secret remains private. Subsequent documentation pushes intentionally skip the live job while ordinary CI runs. Earlier failures and local-only results below are historical evidence, not outstanding provider blockers. Deployment and its production configuration remain separate work; PR #1 stays draft and unmerged.
+
+**Decision — Close ITER-006:** retain the bounded smoke and isolation checks; provider persistence gate is satisfied by the actual hosted run. No prompt tuning, correction learning, held-out changes or later-phase work occurred.
