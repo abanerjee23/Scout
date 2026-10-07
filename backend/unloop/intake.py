@@ -97,7 +97,7 @@ def parse_report(message: str) -> dict:
     )
     full = list(re.finditer(rf"\b(\d{{1,2}})\s+({MONTH_PATTERN})\s+(\d{{4}})\b", text, re.I))
     try:
-        if len(iso) == 2:
+        if len(iso) == 2 and not full:
             start, end = (date.fromisoformat(match.group()) for match in iso)
             date_span = (iso[0].start(), iso[1].end())
         elif not iso and shared and len(full) == 1:
@@ -127,6 +127,27 @@ def parse_report(message: str) -> dict:
                 raise ValueError("Incomplete date range")
         else:
             raise ValueError("Missing or ambiguous dates")
+        # Every recognizable date signal must belong to the selected expression.
+        # Unsupported/mixed formats are clarified rather than silently discarded.
+        signals = re.finditer(
+            rf"(?<!\d)\d{{4}}-\d{{1,2}}(?:-\d{{1,2}})?(?!\d)|"
+            rf"\b\d{{1,2}}(?:\s*(?:-|to)\s*\d{{1,2}})?\s+{MONTH_PATTERN}"
+            rf"(?:\s+\d{{4}})?\b|\b\d{{1,2}}/\d{{1,2}}(?:/\d{{2,4}})?\b|"
+            r"\b(?:today|tomorrow|yesterday|next\s+(?:week|month|year))\b",
+            text,
+            re.I,
+        )
+        if any(m.start() < date_span[0] or m.end() > date_span[1] for m in signals):
+            raise ValueError("Additional or incomplete date expression")
+        if re.search(r"\b(?:to|until|through|or)\s*$", text[: date_span[0]], re.I):
+            raise ValueError("Incomplete preceding endpoint")
+        endpoints = iso if iso else full
+        if len(endpoints) == 2 and not re.fullmatch(
+            r"\s*(?:to|-|until|through)\s*",
+            text[endpoints[0].end() : endpoints[1].start()],
+            re.I,
+        ):
+            raise ValueError("Conflicting date endpoints")
         if not 2000 <= start.year <= 2100 or not 2000 <= end.year <= 2100 or end < start:
             raise ValueError("Invalid date range")
         header.update(startDate=start.isoformat(), endDate=end.isoformat())

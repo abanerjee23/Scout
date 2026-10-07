@@ -39,8 +39,10 @@ class DemoProfile(Base):
     __table_args__ = (
         UniqueConstraint("session_id", "persona", name="profile_owner_persona"),
         UniqueConstraint("session_id", "id", name="profile_owner_id"),
+        UniqueConstraint("id", "persona", name="profile_id_persona"),
         CheckConstraint(
-            "(persona = 'employee' AND grade = 'C') OR (persona = 'manager' AND grade IS NULL)",
+            "(persona = 'employee' AND grade IS NOT NULL AND grade = 'C') "
+            "OR (persona = 'manager' AND grade IS NULL)",
             name="profile_seeded_grade",
         ),
     )
@@ -61,6 +63,13 @@ class Report(Base):
             name="report_employee_owner",
             ondelete="CASCADE",
         ),
+        ForeignKeyConstraint(
+            ["employee_profile_id", "employee_persona"],
+            ["demo_profiles.id", "demo_profiles.persona"],
+            name="report_employee_persona",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("employee_persona = 'employee'", name="report_employee_only"),
         UniqueConstraint("session_id", "confirmation_id", name="report_confirmation_once"),
         CheckConstraint("end_date >= start_date", name="report_date_order"),
         CheckConstraint("char_length(btrim(name)) BETWEEN 3 AND 120", name="report_name_length"),
@@ -75,6 +84,7 @@ class Report(Base):
         ForeignKey("demo_sessions.id", ondelete="CASCADE"), index=True
     )
     employee_profile_id: Mapped[UUID]
+    employee_persona: Mapped[str] = mapped_column(String(16), server_default="employee")
     confirmation_id: Mapped[UUID]
     name: Mapped[str] = mapped_column(String(120))
     start_date: Mapped[date]

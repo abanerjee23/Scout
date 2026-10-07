@@ -194,3 +194,23 @@ Phase 0 should establish the runnable scaffold and labelled Meal cases. Validate
 **Improve — Keep:** bounded deterministic intake delivers the first real persisted workflow without model dependencies. The user-requested FastAPI migration preserves Phase 0 checks; synthetic Meal examples remain separate. No Phase 1B/1C functionality was implemented.
 
 **Limitations / next gate:** Supabase connectivity is unverified because no connection was configured. Hosted CI/publication has not run. Configure/verify these gates before treating 1A as fully signed off or starting 1B. The local implementation cycle closes with these explicit delivery/provider limitations, not a complete Phase 1 claim.
+
+### ITER-005 — Phase 1A date and database invariant hardening
+
+**Date / phase:** 7 October 2026 / Phase 1A
+
+**Status:** Closed (Cloud validation); hosted CI verification and Supabase gate pending
+
+**Previous cycle:** ITER-004
+
+**Frame:** Cloud review of PR #1 at `a020dbf` found mixed/incomplete dates silently discarded, SQL CHECK accepting employee null grade, and owner-only profile FK accepting a manager as report employee. Hypothesis: conservative date-signal validation and narrow database constraints close these gaps without changing the session/report workflow.
+
+**Success criteria:** reviewed date probes ask for clarification; supported explicit-year inputs remain valid; actual PostgreSQL rejects null/non-C employee grade, manager report profile and foreign-owner profile; existing databases upgrade safely; fresh/upgrade/downgrade/re-upgrade metadata and all regression gates pass. Keep deterministic intake, FastAPI, no model write authority, no new phase features.
+
+**Build:** one agent on existing tracking branch `codex/phase-1a`, no worktree. Added parser regression coverage, explicit non-null grade CHECK, fixed report employee-persona FK alongside existing owner FK, reversible `0002_phase1a_hardening`, readiness revision and actual PostgreSQL negative/backfill/rollback tests. Demo backfill repairs null grade to C and same-owner manager references to existing seeded employees; absent employee aborts atomically. Downgrade retains repaired values.
+
+**Validate:** frozen sync, Ruff, **88 backend tests / zero skips**, 24-case fixture integrity / zero model runs, worker check, npm ci/build and **7 Chromium browser tests / zero skips** passed in restored Cloud using disposable native PostgreSQL. Existing cookie/report survives migration. Missing employee upgrade fails with version/schema/report intact. [Cloud hardening evidence](../validation/PHASE_1A_VALIDATION.md#cloud-phase-1a-hardening--7-october-2026) records commands, runtime and limits.
+
+**Improve — Keep:** SQL null semantics and owner-versus-persona constraints need explicit negative database tests; passing API seeds alone did not prove those invariants. Deterministic intake conservatively asks for correction instead of discarding unsupported date signals. No extraction quality, model cost or provider integration is inferred.
+
+**Remaining gate:** verify this increment's hosted CI (Cloud GitHub API returned Forbidden), and separately verify a securely configured non-production Supabase connection. Do not merge or start 1B/1C in this task. Protected build plan/fixtures/held-out separation remain unchanged; no prompt tuning or correction learning.

@@ -35,6 +35,16 @@ def test_explicit_natural_date_formats(dates, start, end):
         "4–1 October 2026",
         "2026-10-01 to 4 October",
         "1 October to 4 October 2026",
+        "1 October to 2026-10-04",
+        "2026-10-01 to 2026-10-04 or 8 October 2026",
+        "2026-10-01 to 4 October 2026",
+        "4 October 2026 to 2026-10-05",
+        "2026-10-01 or 2026-10-04",
+        "4 October 2026 or 5 October 2026",
+        "2026-10-01 for next week",
+        "03/04/2026 to 2026-10-04",
+        "2026-10 to 2026-10-04",
+        "1 to 2026-10-04",
     ],
 )
 def test_ambiguous_missing_or_invalid_dates_need_review(dates):

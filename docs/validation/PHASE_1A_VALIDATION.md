@@ -74,3 +74,32 @@ Fresh screenshots are generated and ignored at `artifacts/local/phase1a-desktop.
 ## Remaining sign-off
 
 Configure a non-production Supabase PostgreSQL connection securely, apply the migration, run the API and confirm/list/reload/restart a report with the same live session, then repeat owner/manager access checks. Record the actual target/run evidence without credentials or raw report text. Baseline and feature branch were published on user authorization; [draft PR #1](https://github.com/abanerjee23/UnLoop/pull/1) and its CI are available. Complete the separate Cloud environment setup and run the requested review. Do not start 1B or 1C as part of resolving this report.
+
+## Cloud Phase 1A hardening — 7 October 2026
+
+Fresh-task restoration was verified at `a020dbf79412dc1a75127eebc28674a7f0dd7e71`, matching remote `codex/phase-1a` and PR #1. Main remains `5fa19ba`. The detached snapshot HEAD was expected. The retained native PostgreSQL binaries/data restored; `source /workspace/.unloop-cloud/env.sh` and `bash /workspace/.unloop-cloud/start-postgres.sh` started the quiesced server and returned `SELECT 1 = 1`. Initial sandbox socket/esbuild restrictions were resolved with command-specific approval; global network restrictions were preserved. No installation script or real provider credentials/data were used.
+
+The review found three gaps, now hardened in this increment:
+
+- Deterministic intake requests clarification for mixed, incomplete or conflicting recognizable date expressions, including both reviewed probes. It preserves supported ISO/English explicit-year inputs and the single-day “to attend” purpose. Unsupported formats remain manual review; there is no model call or unrestricted natural-language understanding claim.
+- Employee grade CHECK now explicitly requires non-null C; manager grade remains null.
+- Reports retain their owner/profile foreign key and gain a fixed employee-persona discriminator plus composite profile/persona foreign key. Direct PostgreSQL writes cannot substitute a manager profile, another owner's employee, or change the discriminator to manager.
+
+New reversible revision `0002_phase1a_hardening` applies to existing and fresh databases. It backfills previously allowed employee null grades to fixed demo C and rebinds same-owner manager report references to the existing seeded employee. It does not create identities, change report headers/IDs/owners or delete reports. A missing employee makes upgrade fail transactionally; repair that retained demo data explicitly before retrying. Downgrade removes the new constraints/column, but intentionally retains corrected grade/profile values. API readiness requires the new revision. Run `uv run --frozen alembic upgrade head` against the intended non-production `DATABASE_URL` before using the updated API.
+
+Actual fresh Cloud evidence, using disposable database `unloop_hardening_test` and isolated schemas:
+
+| Command/check | Result |
+|---|---|
+| `uv sync --frozen` | Pass |
+| `uv run --frozen ruff check backend scripts` | Pass |
+| `TEST_DATABASE_URL=… REQUIRE_POSTGRES_TESTS=true uv run --frozen pytest -q -ra` | **88 passed, zero skips**; one existing Starlette dependency deprecation warning |
+| `uv run --frozen python -m unloop.fixture_check` | **24 cases**, 12/12 split, zero model runs |
+| `uv run --frozen python -m unloop.worker --check` | Pass; queue still unimplemented |
+| `npm ci --prefix frontend` / `npm run build --prefix frontend` | Pass; 35 modules |
+| `TEST_DATABASE_URL=… REQUIRE_POSTGRES_TESTS=true npm test --prefix frontend` | **7 passed, zero skips**, including five real API/PostgreSQL workspace flows |
+| Migration regressions | Fresh upgrade, populated `0001` upgrade/backfill, downgrade/re-upgrade, Alembic metadata alignment, retained cookie/report reopen and atomic failure on missing employee all pass |
+
+Runtime: Python 3.12.14, uv 0.11.7, Ruff 0.16.9, Node 22.22.0, npm 11.9.0, native PostgreSQL 17.11; Playwright 1.63.0 with retained pinned Chromium revision 1243 (153.0.8010.12). Existing authorization/CSRF/persona/confirmation/concurrency/process-restart tests remain passing. Build plan, fixtures, held-out separation, A1 schema/checker and archive originals remain unchanged; no correction learning or prompt tuning occurred.
+
+Hosted CI for this hardening increment is separately pending verification; the historical CI links above are for `8484701`, not this change. Fresh GitHub API status lookup returned `Forbidden` in this Cloud environment. Supabase provider connectivity remains **UNVERIFIED**, independent of these passing PostgreSQL engine tests. No whole-phase/provider sign-off, merge or Phase 1B/1C work is included.

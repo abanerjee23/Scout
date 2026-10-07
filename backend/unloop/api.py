@@ -122,7 +122,7 @@ def health():
 @router.get("/readiness")
 def readiness(db: Db):
     version = db.scalar(text("SELECT version_num FROM alembic_version"))
-    if version != "0001_phase1a":
+    if version != "0002_phase1a_hardening":
         raise ApiProblem(503, "migration_required", "Apply the database migrations.")
     db.execute(select(DemoSession.id).limit(1))
     return {"service": "unloop", "database": "ready", "schemaVersion": version}
