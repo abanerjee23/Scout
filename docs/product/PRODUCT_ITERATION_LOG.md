@@ -246,3 +246,26 @@ Hosted backend **152 passed, zero skips** and Chromium **7 passed, zero skips**;
 After success the owner set `RUN_SUPABASE_SMOKE=false`; the repository secret remains private. Subsequent documentation pushes intentionally skip the live job while ordinary CI runs. Earlier failures and local-only results below are historical evidence, not outstanding provider blockers. Deployment and its production configuration remain separate work; PR #1 stays draft and unmerged.
 
 **Decision — Close ITER-006:** retain the bounded smoke and isolation checks; provider persistence gate is satisfied by the actual hosted run. No prompt tuning, correction learning, held-out changes or later-phase work occurred.
+
+### ITER-007 — Shared retained evidence and recoverable validation jobs
+
+**Date / phase:** 7 October 2026 / Phase 1B
+**Status:** Verified and review approved; [PR #2](https://github.com/abanerjee23/UnLoop/pull/2) ready for parent merge. Verified 7 October 2026 at `599a391c009674d44dca9ad8275f4901ddb13031`: [hosted run 37673483432](https://github.com/abanerjee23/UnLoop/actions/runs/37673483432) passed **186 backend / 9 Chromium tests, zero skips**, and live Supabase job `112972061482` passed, including `evidence_bytes_dedup_restart_worker_recovery:true` and `schema_cleanup:true`. This proves synthetic isolated-schema provider persistence/restart/worker recovery; it does not prove Gmail, deployed UI/worker or production public migrations. Parent disabled `RUN_SUPABASE_SMOKE=false` after success.
+
+**Hypothesis:** a shared chat/workspace pipeline with private retained originals, session-scoped deduplication and leased PostgreSQL validation jobs makes evidence reusable and recoverable before Gmail or AI integration.
+
+**Acceptance criteria:** JPEG/PNG/PDF signature/MIME/validity/hash checks; limits 10 MiB/document, ten pages and ten files/batch; original-byte reopen; report/source provenance; no cross-session/manager access or existence leaks; employee origin/CSRF mutations; concurrent dedup; bounded attempts/leases/timeouts, stale-result refusal and interrupted-worker recovery; desktop/mobile honest queued/validated/failed/retry states; complete real PostgreSQL/backend/browser baseline passes. No extraction/claim is fabricated. Preserve BUILD_PLAN, fixtures, archive and held-out separation.
+
+
+**Build:** one shared multipart pipeline; structural JPEG/PNG/PDF validation in bounded subprocesses; separate PostgreSQL bytes, owner/hash uniqueness and report/source provenance; revision-keyed jobs with three attempts, 30s leases and idempotent/stale-safe finishes; shared upload component and honest polling/retry/download states. No AI or expense amounts.
+
+**Validate:** **182 backend / 9 Chromium passed, zero skips** with required native PostgreSQL and CI flags. Frozen sync/Ruff/24-case fixture integrity (zero model runs)/worker check/npm ci/build passed. Real worker OS-process exit after committed claim recovers in a new process; full provider script runs locally with real HTTP/worker/bytes/restart/cleanup assertions. Fresh/0002 upgrade/downgrade/re-upgrade/Alembic alignment pass. Desktop/mobile screenshots inspected. Earlier migration-table and multipart exception-boundary failures were corrected; final suites pass.
+
+**Decision — Keep:** ordinary CI and the reviewed Phase 1B Supabase gate passed at the exact commit/run above; parent merge remains pending. Phase 1A live success is already verified and PR #1 merged. No Cloud provider secret/TCP, BUILD_PLAN/fixture/archive changes, correction learning, policy activation or paid work. Phase 1C and later remain unimplemented. Current handoff authority/evidence lives in [BUILD_STATUS](BUILD_STATUS.md).
+
+
+### Lead-review follow-up — 7 October 2026
+
+Upload authentication now uses a short unlocked read transaction before multipart intake, releases it before body receipt/validation, and acquires a fresh locking transaction only after the whole batch validates. Cookie/token, expiry, CSRF, employee persona and report ownership are checked again before dedup/bytes/links/jobs writes. Other Phase 1A routes retain their existing locking behavior. Multipart content-type errors now describe multipart intake correctly.
+
+Delayed-validation regressions prove same-session reads and persona switching complete promptly; a persona switch or expiry during validation produces zero document/byte/link/job rows. Existing concurrent dedup tests remain. Targeted checks: four passed; full mandatory PostgreSQL suite with CI=true/GITHUB_ACTIONS=true: **186 passed, zero skips**; Chromium real API/PostgreSQL/worker suite: **9 passed, zero skips**; Ruff and diff whitespace checks passed. An initial test setup used the wrong persona route and violated the expiry ordering constraint; those test setup errors were corrected before the successful full run. Hosted/live follow-up passed at the exact commit/run above; earlier failures are historical.

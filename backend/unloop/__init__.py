@@ -10,6 +10,9 @@ from starlette.exceptions import HTTPException
 
 from unloop.api import ApiProblem, router
 from unloop.database import Settings, postgres_engine
+from unloop.evidence import UploadBodyLimit
+from unloop.evidence import router as evidence_router
+from unloop.evidence_validation import MAX_REQUEST_BYTES
 
 
 def create_app(test_config: dict | None = None) -> FastAPI:
@@ -73,6 +76,8 @@ def create_app(test_config: dict | None = None) -> FastAPI:
             {"error": {"code": "not_found", "message": "Not found"}}, status_code=exc.status_code
         )
 
+    app.add_middleware(UploadBodyLimit, limit=lambda: MAX_REQUEST_BYTES)
+
     @app.middleware("http")
     async def request_boundary(request: Request, call_next):
         if request.url.path.startswith("/api/") and request.method in {
@@ -94,18 +99,31 @@ def create_app(test_config: dict | None = None) -> FastAPI:
                     },
                     status_code=403,
                 )
-            if request.headers.get("content-type", "").split(";")[0] != "application/json":
+            upload = (
+                request.method == "POST"
+                and request.url.path.startswith("/api/reports/")
+                and request.url.path.endswith("/evidence")
+            )
+            expected_type = "multipart/form-data" if upload else "application/json"
+            if request.headers.get("content-type", "").split(";")[0] != expected_type:
                 return JSONResponse(
-                    {"error": {"code": "json_required", "message": "JSON is required."}},
+                    {
+                        "error": {
+                            "code": "multipart_required" if upload else "json_required",
+                            "message": "Multipart form data is required."
+                            if upload
+                            else "JSON is required.",
+                        }
+                    },
                     status_code=415,
                 )
             length = request.headers.get("content-length", "")
-            if not length.isdigit() or int(length) > 16 * 1024:
+            if not length.isdigit() or int(length) > (MAX_REQUEST_BYTES if upload else 16 * 1024):
                 return JSONResponse(
                     {
                         "error": {
                             "code": "request_too_large",
-                            "message": "Keep report details under 16 KiB.",
+                            "message": "Request exceeds the upload or report-detail limit.",
                         }
                     },
                     status_code=413,
@@ -117,4 +135,5 @@ def create_app(test_config: dict | None = None) -> FastAPI:
         return response
 
     app.include_router(router)
+    app.include_router(evidence_router)
     return app

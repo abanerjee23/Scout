@@ -13,14 +13,21 @@ import time
 from contextlib import contextmanager
 
 import httpx
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 
-from scripts.postgres_test_support import ROOT, client_tls_in_use, isolated_database
+from scripts.postgres_test_support import (
+    ROOT,
+    client_tls_in_use,
+    isolated_database,
+    isolated_schema,
+)
 from scripts.smoke_diagnostics import DiagnosticFailure, diagnostic_phase, safe_error_code
 
 PROJECT_REF = "lchwjzunjqtakjdnzrze"
-REVISION = "0002_phase1a_hardening"
+REVISION = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini"))).get_current_head()
 
 
 class SmokeFailure(DiagnosticFailure):
@@ -130,13 +137,123 @@ def api_process(database_url, port, *, schema=None):
             process.wait(timeout=5)
 
 
+def synthetic_files():
+    import io
+
+    from PIL import Image
+    from pypdf import PdfWriter
+
+    files = []
+    for format, mime in (("PNG", "image/png"), ("JPEG", "image/jpeg")):
+        stream = io.BytesIO()
+        Image.new("RGB", (48, 32), (200, 120, 20)).save(stream, format=format)
+        files.append((format.lower(), mime, stream.getvalue()))
+    stream = io.BytesIO()
+    writer = PdfWriter()
+    writer.add_blank_page(width=200, height=300)
+    writer.write(stream)
+    files.append(("pdf", "application/pdf", stream.getvalue()))
+    return files
+
+
+def smoke_evidence(client, engine, report, headers, database_url, schema):
+    files = synthetic_files()
+    originals = {}
+    with diagnostic_phase("evidence_upload"):
+        response = client.post(
+            f"/api/reports/{report['id']}/evidence",
+            headers=headers,
+            data={"source": "chat"},
+            files=[("files", ("synthetic." + ext, content, mime)) for ext, mime, content in files],
+        )
+        require(response.status_code == 201, "evidence_upload_failed")
+        for document, (_, _, content) in zip(response.json()["documents"], files, strict=True):
+            require(not document["duplicate"], "unexpected_owner_duplicate")
+            originals[document["id"]] = content
+        proposal = client.post(
+            "/api/report-proposals",
+            headers=headers,
+            json={"message": "Synthetic London report 1–4 October 2026 for a test workshop"},
+        ).json()
+        another = client.post(
+            "/api/reports",
+            headers=headers,
+            json={
+                "confirmed": True,
+                "proposalToken": proposal["proposalToken"],
+                "header": proposal["header"],
+            },
+        )
+        require(another.status_code == 201, "evidence_second_report_failed")
+        another = another.json()
+        repeated = client.post(
+            f"/api/reports/{another['id']}/evidence",
+            headers=headers,
+            data={"source": "workspace"},
+            files=[("files", ("synthetic." + ext, content, mime)) for ext, mime, content in files],
+        )
+        require(repeated.status_code == 201, "evidence_dedup_failed")
+        require(
+            all(
+                item["duplicate"] and item["id"] in originals
+                for item in repeated.json()["documents"]
+            ),
+            "evidence_dedup_failed",
+        )
+        with engine.connect() as connection:
+            require(
+                connection.scalar(text("SELECT count(*) FROM documents")) == 3,
+                "evidence_duplicate_rows",
+            )
+    with diagnostic_phase("worker_recovery"):
+        from unloop.worker import claim_job
+
+        crashed = claim_job(engine)
+        require(crashed is not None, "worker_claim_failed")
+        # Simulate interruption after a committed claim, then run a real new worker.
+        with engine.begin() as connection:
+            connection.execute(
+                text("UPDATE evidence_jobs SET lease_until=now()-interval '1 second' WHERE id=:id"),
+                {"id": crashed.id},
+            )
+        for _ in range(3):
+            result = subprocess.run(
+                [sys.executable, "-m", "unloop.worker", "--once"],
+                cwd=ROOT,
+                env={
+                    "PATH": os.environ.get("PATH", ""),
+                    "DATABASE_URL": database_url,
+                    "UNLOOP_TEST_SCHEMA": schema,
+                },
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=30,
+                check=False,
+            )
+            require(result.returncode == 0, "worker_process_failed")
+        with engine.connect() as connection:
+            require(
+                connection.scalar(text("SELECT count(*) FROM documents WHERE state='validated'"))
+                == 3,
+                "worker_terminal_state_failed",
+            )
+            require(
+                connection.scalar(
+                    text("SELECT attempts FROM evidence_jobs WHERE id=:id"), {"id": crashed.id}
+                )
+                == 2,
+                "worker_recovery_failed",
+            )
+    return another, originals
+
+
 def run_smoke(database_url, *, live):
     with isolated_database(database_url, require_tls=live, phase=diagnostic_phase) as (
         scoped_url,
         engine,
     ):
         with diagnostic_phase("migration_verification"), engine.connect() as connection:
-            schema = connection.scalar(text("SELECT current_schema()"))
+            schema = isolated_schema(engine)
             require(
                 bool(re.fullmatch(r"unloop_test_[0-9a-f]{32}", schema or "")),
                 "isolated_schema_required",
@@ -214,6 +331,9 @@ def run_smoke(database_url, *, live):
                 require(
                     client.get(f"/api/reports/{report['id']}").json() == report, "refetch_failed"
                 )
+                another_report, originals = smoke_evidence(
+                    client, engine, report, headers, scoped_url, schema
+                )
                 cookies = dict(client.cookies)
         # First Uvicorn process has exited. Reuse its DB-owned cookie in another process.
         with (
@@ -232,9 +352,26 @@ def run_smoke(database_url, *, live):
                     "restart_persistence_failed",
                 )
                 require(
-                    client.get("/api/reports").json() == {"reports": [report]},
+                    client.get("/api/reports").json() == {"reports": [another_report, report]},
                     "restart_list_failed",
                 )
+                with diagnostic_phase("evidence_restart"):
+                    import hashlib
+
+                    retained = client.get(f"/api/reports/{report['id']}/evidence")
+                    require(retained.status_code == 200, "evidence_restart_failed")
+                    require(
+                        all(item["state"] == "validated" for item in retained.json()["documents"]),
+                        "evidence_state_not_retained",
+                    )
+                    for document_id, content in originals.items():
+                        response = client.get(f"/api/documents/{document_id}/original")
+                        require(
+                            response.status_code == 200
+                            and hashlib.sha256(response.content).digest()
+                            == hashlib.sha256(content).digest(),
+                            "evidence_bytes_not_retained",
+                        )
                 with httpx.Client(base_url=origin, timeout=10, trust_env=False) as other:
                     require(
                         other.post("/api/session", json={}, headers={"Origin": origin}).status_code
@@ -246,6 +383,15 @@ def run_smoke(database_url, *, live):
                         other.get(f"/api/reports/{report['id']}").status_code == 404,
                         "owner_read_leak",
                     )
+                    for document_id in originals:
+                        require(
+                            other.get(f"/api/documents/{document_id}/original").status_code == 404,
+                            "evidence_owner_leak",
+                        )
+                    require(
+                        other.get(f"/api/reports/{report['id']}/evidence").status_code == 404,
+                        "evidence_owner_leak",
+                    )
                 require(
                     client.patch(
                         "/api/session/persona", json={"persona": "manager"}, headers=headers
@@ -254,6 +400,15 @@ def run_smoke(database_url, *, live):
                     "persona_switch_failed",
                 )
                 require(client.get("/api/reports").json() == {"reports": []}, "manager_list_leak")
+                for document_id in originals:
+                    require(
+                        client.get(f"/api/documents/{document_id}/original").status_code == 403,
+                        "evidence_manager_leak",
+                    )
+                require(
+                    client.get(f"/api/reports/{report['id']}/evidence").status_code == 403,
+                    "evidence_manager_leak",
+                )
                 require(
                     client.get(f"/api/reports/{report['id']}").status_code == 403,
                     "manager_read_leak",
@@ -279,6 +434,7 @@ def run_smoke(database_url, *, live):
         "migration": REVISION,
         "http_restart_ownership_grade": True,
         "schema_cleanup": True,
+        "evidence_bytes_dedup_restart_worker_recovery": True,
     }
 
 

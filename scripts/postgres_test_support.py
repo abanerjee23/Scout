@@ -63,7 +63,7 @@ def isolated_database(test_url: str, *, require_tls=False, phase=None):
         scoped = test_url
         engine = postgres_engine(scoped, schema=schema)
         # Verify the actual selected schema before any Alembic operation. A pooler
-        # that drops startup options must fail instead of migrating public.
+        # must fail closed if explicit schema selection cannot be established.
         with phase("scoped_connection"), engine.connect() as connection:
             with phase("scoped_search_path"):
                 if connection.scalar(text("SELECT current_schema()")) != schema:

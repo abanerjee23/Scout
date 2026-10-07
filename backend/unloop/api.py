@@ -35,7 +35,7 @@ def database(request: Request):
 Db = Annotated[Session, Depends(database, scope="function")]
 
 
-def current_session(request: Request, db: Db) -> DemoSession:
+def resolve_session(request: Request, db: Session, *, lock: bool) -> DemoSession:
     cookie = request.cookies.get(request.app.state.settings.cookie_name)
     if not cookie:
         raise ApiProblem(401, "session_required", "Start a demo session to continue.")
@@ -43,9 +43,8 @@ def current_session(request: Request, db: Db) -> DemoSession:
         raise ApiProblem(401, "invalid_session", "This demo session is invalid.", clear_cookie=True)
     token_hash = hashlib.sha256(cookie.encode()).hexdigest()
     # Serialize persona switching and authorized actions/concurrent confirmations.
-    owner = db.scalar(
-        select(DemoSession).where(DemoSession.token_hash == token_hash).with_for_update()
-    )
+    query = select(DemoSession).where(DemoSession.token_hash == token_hash)
+    owner = db.scalar(query.with_for_update() if lock else query)
     if owner is None:
         raise ApiProblem(401, "invalid_session", "This demo session is invalid.", clear_cookie=True)
     if owner.expires_at <= datetime.now(UTC):
@@ -53,6 +52,10 @@ def current_session(request: Request, db: Db) -> DemoSession:
             401, "session_expired", "Your demo session expired. Start a new one.", clear_cookie=True
         )
     return owner
+
+
+def current_session(request: Request, db: Db) -> DemoSession:
+    return resolve_session(request, db, lock=True)
 
 
 Owner = Annotated[DemoSession, Depends(current_session)]
@@ -122,7 +125,7 @@ def health():
 @router.get("/readiness")
 def readiness(db: Db):
     version = db.scalar(text("SELECT version_num FROM alembic_version"))
-    if version != "0002_phase1a_hardening":
+    if version != "0003_phase1b_evidence":
         raise ApiProblem(503, "migration_required", "Apply the database migrations.")
     db.execute(select(DemoSession.id).limit(1))
     return {"service": "unloop", "database": "ready", "schemaVersion": version}

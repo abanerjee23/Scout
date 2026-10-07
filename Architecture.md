@@ -4,7 +4,7 @@
 
 Updated: 7 October 2026  
 Owner: Abhinav  
-Status: Phase 1A implemented on FastAPI/Python and verified against local PostgreSQL; Supabase smoke pending. Phases 1B–6 remain design.
+Status: Phase 1A verified locally and on live Supabase, merged in PR #1. Phase 1B shared uploads/evidence/leased validation jobs implemented; its hosted/live gates pending. Gmail and Phases 2–6 remain design. See [current ledger](docs/product/BUILD_STATUS.md).
 
 [Vision](Unloop_Vision.md) governs product behaviour; [build plan](BUILD_PLAN.md) governs sequencing. This revision replaces Supabase employee/manager login, manual-only intake and required employee-led post-submission splitting. Previous designs and rendered diagrams are in [archive](archive/README.md). The map below reflects current responsibilities, not completed integrations.
 
@@ -43,14 +43,14 @@ Code validates every model result and owns writes, arithmetic, eligibility and a
 | Layer | Current design |
 |---|---|
 | UI | React, TypeScript and Vite; persona/report workspace plus separate synthetic Meal preview |
-| Backend | Python/FastAPI; sessions/personas, bounded intake, confirmed reports and health/readiness; later workflows unimplemented |
+| Backend | Python/FastAPI; sessions/personas, confirmed reports, evidence uploads/private originals and health/readiness; later workflows unimplemented |
 | Agent orchestration | OpenAI Agents SDK, code-controlled specialist execution; not yet integrated |
 | Models | Luna named baseline, exact available API identifier to be pinned; Sol only after measured comparison, no automatic upgrade |
-| Database/files | Supabase PostgreSQL; original receipt bytes separated from report-list rows; migrated local PostgreSQL verified; Supabase connection still unverified |
+| Database/files | Supabase PostgreSQL; original receipt bytes separated from report-list rows; Phase 1A Supabase persistence verified; Phase 1B isolated live evidence gate pending |
 | Retrieval | pgvector, approved clause-linked snapshots; small embedding baseline pinned with index configuration |
 | Sessions/personas | Implemented server-owned isolated demo sessions and Employee/Manager toggle; no app login/logout |
 | Gmail | Existing user-confirmed GCP setup for aban.hackathon@gmail.com; adapter/callback/scan still to be integrated and verified here |
-| Jobs | PostgreSQL queue plus Python worker; existing worker entry point is only a scaffold |
+| Jobs | Leased PostgreSQL evidence-validation jobs and Python worker; 3 attempts/30s leases/15s validation deadline, no extraction yet |
 | FX | Saved observation → Frankfurter pinned to ECB → Open Exchange Rates fallback under accepted date/basis rules |
 | Diagnostics/evals | Existing project-specific Galileo choice retained; deterministic tests use pytest |
 | Hosting | Railway web service serving built React/FastAPI and a separate worker |

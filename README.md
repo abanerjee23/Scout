@@ -2,13 +2,13 @@
 
 Expense report preparation with an Employee/Manager demo workspace.
 
-**Current implementation: Phase 1A on FastAPI/Python.** An employee can describe a report to Astra, review/correct its name, explicit dates and business purpose, confirm it, and reopen the saved report. PostgreSQL owns sessions, profiles and reports. Manager mode cannot inspect employee drafts. This is a persona demonstration, not production multi-user authentication.
+**Current implementation: Phase 1B on FastAPI/Python (hosted/live increment gate pending).** An employee can describe a report to Astra, review/correct its name, explicit dates and business purpose, confirm it, and reopen the saved report. PostgreSQL owns sessions, profiles and reports. Manager mode cannot inspect employee drafts. This is a persona demonstration, not production multi-user authentication.
 
 Astra report intake is **deterministic**, with no model/API call: it recognizes supported explicit date formats and asks for review when fields are missing or ambiguous. Confirmation and database writes belong to application code. No manager details are requested.
 
-**Not implemented:** uploads, Gmail, extraction, policy assessment, FX, submission, approval, Teams, RAG, durable worker processing or Railway deployment. The separately labelled synthetic Meal preview remains at `/?preview=1`; its values are expected outcomes, not extracted/saved expenses.
+Chat/workspace JPEG, PNG and PDF uploads share retained session-private evidence and leased PostgreSQL validation jobs. **Not implemented:** Gmail, extraction, policy assessment, FX, submission, approval, Teams, RAG or Railway deployment. The separately labelled synthetic Meal preview remains at `/?preview=1`; its values are expected outcomes, not extracted/saved expenses.
 
-Local PostgreSQL integration and real API/browser checks pass. **Supabase connectivity and hosted CI are separate, unverified gates** until configured/executed; this does not claim full Phase 1 completion. See [Phase 1A validation](docs/validation/PHASE_1A_VALIDATION.md).
+Local PostgreSQL integration and real API/browser checks pass. Phase 1A hosted CI and [live Supabase smoke](docs/validation/SUPABASE_PHASE_1A_SMOKE.md) passed before PR #1 merged. Phase 1B has its own pending hosted/live evidence gate; this does not claim full Phase 1 completion. See [Phase 1A validation](docs/validation/PHASE_1A_VALIDATION.md).
 
 Full-version repository: [abanerjee23/UnLoop](https://github.com/abanerjee23/UnLoop). The separate hackathon repository `abanerjee23/Un-Loop` is outside this work.
 
@@ -33,7 +33,7 @@ SESSION_COOKIE_SECURE=false
 SESSION_TTL_SECONDS=28800
 ```
 
-These are public local-development credentials for a database bound to localhost. For a non-production Supabase database, configure its actual PostgreSQL connection/TLS options securely instead. Do not paste real service credentials into docs/chat or put them in frontend variables. No Supabase Auth keys, model keys or Gmail credentials are needed for 1A.
+These are public local-development credentials for a database bound to localhost. For a non-production Supabase database, configure its actual PostgreSQL connection/TLS options securely instead. Do not paste real service credentials into docs/chat or put them in frontend variables. No Supabase Auth keys, model keys or Gmail credentials are needed for manual evidence validation.
 
 Apply migrations explicitly before starting the API:
 
@@ -52,7 +52,7 @@ Open [the workspace](http://127.0.0.1:5173). Vite proxies `/api` to FastAPI on p
 
 Try: “Prepare my London expense report for 1–4 October 2026 for a client workshop.” Review/correct the proposed header, then choose **Confirm and create report**. Reload or use Your reports to reopen it. Switch to Manager: drafts disappear and direct draft API reads are blocked. Switch back to Employee to reopen them.
 
-The default session lasts eight hours from creation, without sliding renewal. Its opaque bearer is in a host-only httpOnly SameSite=Lax cookie; only its SHA256 hash is stored. Secure cookies are the default. `SESSION_COOKIE_SECURE=false` is permitted only for explicit HTTP localhost development. Mutations require the exact allowed Origin, JSON and a session-bound CSRF header; bootstrap requires Origin/JSON before any cookie exists. Unknown/expired sessions are rejected and their cookies cleared. Starting a new session does not recover expired-session reports. Fixed demo grade C is server-seeded and not editable.
+The default session lasts eight hours from creation, without sliding renewal. Its opaque bearer is in a host-only httpOnly SameSite=Lax cookie; only its SHA256 hash is stored. Secure cookies are the default. `SESSION_COOKIE_SECURE=false` is permitted only for explicit HTTP localhost development. Mutations require the exact allowed Origin and a session-bound CSRF header, with JSON commands or the one bounded multipart evidence endpoint; bootstrap requires Origin/JSON before any cookie exists. Unknown/expired sessions are rejected and their cookies cleared. Starting a new session does not recover expired-session reports. Fixed demo grade C is server-seeded and not editable.
 
 `GET /api/health` is liveness only. `GET /api/readiness` checks migrated PostgreSQL; unavailable storage gives recoverable 503 copy. The API never creates tables automatically. `docker compose stop` retains local DB data; do not remove its volume unless you intentionally want to discard local demo data.
 
@@ -78,7 +78,7 @@ uv run --env-file .env -- npm test --prefix frontend
 
 `TEST_DATABASE_URL` must reference a dedicated test/development PostgreSQL database. Tests create/drop uniquely named schemas and apply actual Alembic migrations; they never truncate application tables in the public schema. The backend tests cover cookie/expiry, CSRF, ownership, grade/persona spoofing, validation, concurrent confirmation and restart. Browser workspace tests start a real API with a separate disposable schema and do not intercept report/session responses. Ports 5001 and 5173 must be free during browser tests.
 
-Without `TEST_DATABASE_URL`, integration/browser workspace tests explicitly skip; that is not a passing 1A persistence gate. CI supplies PostgreSQL 17 and fails if required DB configuration is absent. The two retained preview tests stub health only. Screenshots/build output stay ignored. The worker remains a check-only scaffold; no queue was implemented.
+Without `TEST_DATABASE_URL`, integration/browser workspace tests explicitly skip; that is not a passing 1A persistence gate. CI supplies PostgreSQL 17 and fails if required DB configuration is absent. The two retained preview tests stub health only. Screenshots/build output stay ignored. The browser server starts a real worker subprocess against its explicit isolated schema. The worker processes structural validation only, with no model or provider calls.
 
 The fixture checker validates 24 labelled Meals (12 development / 12 held-out), **not model quality**. The A1 v0.1 schema and fixtures remain unchanged. Do not feed held-out expected labels into UI/model input. [Fixture guidance](fixtures/meals/README.md) records diversity and integration gaps.
 
@@ -87,10 +87,10 @@ The fixture checker validates 24 labelled Meals (12 development / 12 held-out), 
 | Path | Purpose |
 |---|---|
 | `backend/unloop/api.py` | Authorized sessions/personas/proposals/confirmed reports/readiness |
-| `backend/unloop/database.py`, `models.py` | PostgreSQL configuration and Phase 1A-only entities |
+| `backend/unloop/database.py`, `models.py` | PostgreSQL configuration, sessions/reports and evidence/jobs entities |
 | `backend/unloop/intake.py` | Pydantic inputs and bounded deterministic parsing |
 | `backend/migrations/` | Alembic initial migration; [migration instructions](backend/migrations/README.md) |
-| `frontend/src/components/` | Astra intake, report list and saved workspace |
+| `frontend/src/components/` | Astra intake, report list, saved workspace and shared EvidencePanel |
 | `frontend/src/SyntheticPreview.tsx` | Retained Phase 0 preview, separate from saved data |
 | `backend/tests/`, `frontend/tests/` | Deterministic, PostgreSQL, process-restart and browser checks |
 | `scripts/browser_test_server.py` | Real API/disposable DB for browser tests |
@@ -100,6 +100,20 @@ Sources of truth: [vision](Unloop_Vision.md), [architecture](Architecture.md), [
 
 [Historical audit](docs/product/CURRENT_STATE_AND_EXECUTION_PLAN.md), [iteration log](docs/product/PRODUCT_ITERATION_LOG.md), [delivery workflow](docs/product/DELIVERY_WORKFLOW.md), [supporting docs](docs/README.md), [archive](archive/README.md).
 
+## Evidence and worker
+
+After confirming a report, upload in chat or the workspace. Candidate limits: 10 MiB/file, ten pages/file and ten files/batch; multipart requests are bounded to 101 MiB including overhead, counted while streaming as well as declared length. The server validates actual JPEG/PNG/PDF signature/MIME, image structure/pixel bounds, PDF page/content structure (encrypted PDFs rejected) and SHA256. Parser subprocesses have a 15s wall deadline, 10s CPU and 512 MiB memory cap on Linux. An invalid batch writes nothing. Lists exclude originals/hashes; downloads check owner/persona and use attachment/nosniff/sandbox headers.
+
+Start the validation worker in another terminal:
+
+```sh
+uv run --env-file .env python -m unloop.worker
+# Or process at most one due job:
+uv run --env-file .env python -m unloop.worker --once
+```
+
+The worker commits a 30s lease before processing, retries transient validation failures at most three attempts with backoff, and reclaims expired leases. Tokens/revisions/lease expiry protect idempotent result writes. Explicit retry of failed evidence creates a new validation revision, retaining the original. Queued means the original is saved and waiting; validated means structural checks passed, not extracted/claim-ready. Exact byte duplicates reuse one document per owning session across reports, with separate report/chat/workspace provenance. No cross-session duplicate indicator is exposed. Session expiry denies access; demo bytes remain stored until database retention cleanup, which is separate future real-data readiness work.
+
 ## Next gate
 
-Verify the same migration/session/confirmed-report/reopen journey on securely configured non-production Supabase PostgreSQL, and publish/check the feature branch CI when Git delivery is authorized. Phase 1B is the next implementation increment after 1A gates are satisfied; it has not been started here.
+Parent review, hosted CI and opt-in [Phase 1B live Supabase evidence smoke](docs/validation/PHASE_1B_VALIDATION.md) before merging this increment. The opt-in is currently disabled and skipped is not provider proof. Phase 1C Gmail follows only after 1B's gates; deployment and full Phase 1 completion remain separate. [Current delivery ledger](docs/product/BUILD_STATUS.md) records standing authorization and evidence without rewriting the historical audit or BUILD_PLAN.

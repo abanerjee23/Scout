@@ -18,16 +18,16 @@ export class ApiError extends Error {
 
 export async function api<T>(path: string, options: { method?: string; body?: unknown; csrf?: string; signal?: AbortSignal } = {}): Promise<T> {
   const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), 10000);
+  const timer = window.setTimeout(() => controller.abort(), options.body instanceof FormData ? 180000 : 10000);
   const abort = () => controller.abort();
   options.signal?.addEventListener('abort', abort, { once: true });
   if (options.signal?.aborted) controller.abort();
   try {
     const response = await fetch(`/api${path}`, {
       method: options.method ?? 'GET', credentials: 'same-origin', cache: 'no-store',
-      headers: { ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      headers: { ...(options.body !== undefined && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
         ...(options.csrf ? { 'X-CSRF-Token': options.csrf } : {}) },
-      body: options.body === undefined ? undefined : JSON.stringify(options.body), signal: controller.signal,
+      body: options.body === undefined ? undefined : options.body instanceof FormData ? options.body : JSON.stringify(options.body), signal: controller.signal,
     });
     const data = await response.json();
     if (!response.ok) throw new ApiError(response.status, data.error?.code ?? 'request_failed',

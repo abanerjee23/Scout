@@ -304,6 +304,10 @@ def test_actual_migration_is_repeatable_and_matches_models(postgres):
     migrate(engine)
     assert set(inspect(engine).get_table_names()) == {
         "alembic_version",
+        "documents",
+        "document_bytes",
+        "evidence_links",
+        "evidence_jobs",
         "demo_sessions",
         "demo_profiles",
         "reports",

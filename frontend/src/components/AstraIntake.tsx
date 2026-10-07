@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from 'react';
+import EvidencePanel from './EvidencePanel';
 import { ApiError, api, type DemoSession, type Header, type Report, type Proposal } from '../api';
 
 const EXAMPLE = 'Prepare my London expense report for 1–4 October 2026 for a client workshop.';
-type Props = { session: DemoSession; onSaved: (report: Report) => void; onError: (error: unknown) => void };
+type Props = { session: DemoSession; onSaved: (report: Report) => void; onError: (error: unknown) => void; report: Report | null; refresh: number; onUploaded: () => void };
 
-export default function AstraIntake({ session, onSaved, onError }: Props) {
+export default function AstraIntake({ session, onSaved, onError, report, refresh, onUploaded }: Props) {
   const [message, setMessage] = useState('');
   const [description, setDescription] = useState('');
   const [proposal, setProposal] = useState<Proposal | null>(null);
@@ -41,6 +42,7 @@ export default function AstraIntake({ session, onSaved, onError }: Props) {
     <div className="w-astra-title"><span className="w-astra-mark" aria-hidden="true">a</span><div><h2>Astra</h2><p>Let’s prepare your report.</p></div></div>
     <div className="w-chat-intro"><h3>Start with the trip.</h3><p>Tell me the report name, dates with a year, and business purpose. You’ll review everything before it is saved.</p><button className="w-example" onClick={() => setMessage(EXAMPLE)} disabled={busy}>Use a London workshop example</button></div>
     <form onSubmit={describe} className="w-chat-composer"><label htmlFor="report-description">Describe your report</label><textarea id="report-description" value={message} onChange={event => setMessage(event.target.value)} required maxLength={2000} disabled={busy} rows={3} placeholder="London, 1–4 October 2026, for a client workshop…"/><button className="w-primary" disabled={busy || !message.trim()}>{busy ? 'Working…' : 'Propose report'}</button></form>
+    {report && <EvidencePanel key={report.id} report={report} session={session} source="chat" refresh={refresh} onUploaded={onUploaded} onError={onError}/>}
     {feedback && <p className="w-success" role="status">{feedback}</p>}
     {proposal && <>
       <p className="w-user-message">{description}</p><p className="w-astra-message" role="status">{proposal.message}</p>
