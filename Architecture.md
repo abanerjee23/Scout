@@ -4,18 +4,20 @@
 
 Updated: 7 October 2026  
 Owner: Abhinav  
-Status: revised design baseline v1.1; only Phase 0 scaffold is implemented in this repository.
+Status: Phase 1A implemented on FastAPI/Python and verified against local PostgreSQL; Supabase smoke pending. Phases 1B–6 remain design.
 
 [Vision](Unloop_Vision.md) governs product behaviour; [build plan](BUILD_PLAN.md) governs sequencing. This revision replaces Supabase employee/manager login, manual-only intake and required employee-led post-submission splitting. Previous designs and rendered diagrams are in [archive](archive/README.md). The map below reflects current responsibilities, not completed integrations.
 
+The user explicitly selected FastAPI/Python during Phase 1A, superseding the Flask framework references in the preserved build plan. [Phase 1A evidence](docs/validation/PHASE_1A_VALIDATION.md) records actual implementation, tests and external gates. Astra header intake is deterministic; no model is used in 1A.
+
 ## 1. System shape
 
-One React interface, one Python/Flask codebase, a background worker, four bounded AI specialists and one PostgreSQL database with pgvector. Railway runs the web service and worker as separate processes sharing business rules. Supabase hosts PostgreSQL; employee/manager Supabase Auth is not used in the current demo. Original document bytes stay in PostgreSQL, without separate Supabase Storage buckets.
+One React interface, one Python/FastAPI codebase, a background worker, four bounded AI specialists and one PostgreSQL database with pgvector. Railway runs the web service and worker as separate processes sharing business rules. Supabase hosts PostgreSQL; employee/manager Supabase Auth is not used in the current demo. Original document bytes stay in PostgreSQL, without separate Supabase Storage buckets.
 
 ```mermaid
 flowchart TD
     U[Employee and Manager toggle] --> UI[React: Astra chat, report, evidence, inbox]
-    UI --> API[Flask: demo sessions and authorized commands]
+    UI --> API[FastAPI: demo sessions and authorized commands]
     API --> WF[Workflow, validation and decimal calculations]
     API --> GM[Gmail OAuth and bounded scan adapter]
     GM --> G[Google Gmail API]
@@ -40,18 +42,18 @@ Code validates every model result and owns writes, arithmetic, eligibility and a
 
 | Layer | Current design |
 |---|---|
-| UI | React, TypeScript and Vite; existing synthetic preview only |
-| Backend | Python/Flask; existing health route, future workflow/API |
+| UI | React, TypeScript and Vite; persona/report workspace plus separate synthetic Meal preview |
+| Backend | Python/FastAPI; sessions/personas, bounded intake, confirmed reports and health/readiness; later workflows unimplemented |
 | Agent orchestration | OpenAI Agents SDK, code-controlled specialist execution; not yet integrated |
 | Models | Luna named baseline, exact available API identifier to be pinned; Sol only after measured comparison, no automatic upgrade |
-| Database/files | Supabase PostgreSQL; original receipt bytes separated from report-list rows; no connection demonstrated here |
+| Database/files | Supabase PostgreSQL; original receipt bytes separated from report-list rows; migrated local PostgreSQL verified; Supabase connection still unverified |
 | Retrieval | pgvector, approved clause-linked snapshots; small embedding baseline pinned with index configuration |
-| Sessions/personas | Server-owned isolated demo sessions and Employee/Manager toggle; no app login/logout |
+| Sessions/personas | Implemented server-owned isolated demo sessions and Employee/Manager toggle; no app login/logout |
 | Gmail | Existing user-confirmed GCP setup for aban.hackathon@gmail.com; adapter/callback/scan still to be integrated and verified here |
 | Jobs | PostgreSQL queue plus Python worker; existing worker entry point is only a scaffold |
 | FX | Saved observation → Frankfurter pinned to ECB → Open Exchange Rates fallback under accepted date/basis rules |
 | Diagnostics/evals | Existing project-specific Galileo choice retained; deterministic tests use pytest |
-| Hosting | Railway web service serving built React/Flask and a separate worker |
+| Hosting | Railway web service serving built React/FastAPI and a separate worker |
 | Libraries | Pydantic validation, SQLAlchemy/Alembic migrations and pytest; add dependencies when integrations use them |
 
 Project-specific Galileo remains the earlier agreed baseline; changing it to the general preferred promptfoo/Langfuse/Phoenix stack would be a separate tooling decision, not a hidden consequence of workflow changes. Preserve one diagnostic pipeline per run and measure quality/cost before model changes.
@@ -71,7 +73,7 @@ Manager view exposes only submitted snapshots and relevant approved/history view
 | Component | Authority |
 |---|---|
 | React workspace | Presents chat, report header, lines, receipt, policy sources and inbox; opens the relevant line when Astra asks; never decides eligibility |
-| Flask API | Checks session/persona/object access and validates commands, files and external callbacks |
+| FastAPI API | Checks session/persona/object access and validates commands, files and external callbacks |
 | Workflow service | Owns expense/report revisions, submitted sets, questions, immutable approval releases and inbox/processing-ready events |
 | Calculation/validation service | Decimal amounts, date/currency validation, applicable fields, FX, caps, duplicates, claim totals and deterministic policy rules |
 | Evidence pipeline | Stores bytes/provenance, deduplicates uploads/imports and creates recoverable extraction jobs |

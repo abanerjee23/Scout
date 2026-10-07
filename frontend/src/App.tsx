@@ -1,59 +1,119 @@
-import { useEffect, useState } from 'react';
-
-type Example = { title: string; type: string; merchant: string; amount: string;
-  claim: string; excess: string; status: string; explanation: string; lines: string[] };
-const examples: Example[] = [
-  { title: 'Dinner above the limit', type: 'Dinner', merchant: 'Orchard Table', amount: '62.00',
-    claim: '50.00', excess: '12.00', status: 'Adjusted to policy limit',
-    explanation: 'The Dinner allowance is £50, including service charges. £12 stays outside the claim.',
-    lines: ['Dinner                 GBP 56.00', 'Service charge          GBP 6.00', 'Total                  GBP 62.00'] },
-  { title: 'Lunch within the limit', type: 'Lunch', merchant: 'Canal Kitchen', amount: '18.50',
-    claim: '18.50', excess: '0.00', status: 'Within the meal limit',
-    explanation: 'This Lunch is within the £25 allowance. The full receipt amount can be claimed.',
-    lines: ['Lunch                  GBP 18.50', 'Total                  GBP 18.50'] },
-  { title: 'Meal type needs clarification', type: 'Not established', merchant: 'Market Cafe', amount: '22.00',
-    claim: '—', excess: '—', status: 'Needs information',
-    explanation: 'Was this Breakfast, Lunch or Dinner? The amount alone cannot determine the meal type.',
-    lines: ['Food and drink         GBP 22.00', 'Total                  GBP 22.00'] },
-];
+import { useEffect, useRef, useState } from 'react';
+import { ApiError, api, loadSession, type DemoSession, type Persona, type Report } from './api';
+import AstraIntake from './components/AstraIntake';
+import ReportList from './components/ReportList';
+import ReportWorkspace from './components/ReportWorkspace';
+import SyntheticPreview from './SyntheticPreview';
+import './workspace.css';
 
 export default function App() {
-  const [selected, setSelected] = useState(0);
-  const [health, setHealth] = useState('Checking local API…');
-  const [showReceipt, setShowReceipt] = useState(true);
-  const example = examples[selected];
+  return new URLSearchParams(window.location.search).has('preview') ? <SyntheticPreview /> : <Workspace />;
+}
+
+function Workspace() {
+  const [session, setSession] = useState<DemoSession | null>(null);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [selected, setSelected] = useState<Report | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [opening, setOpening] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const [error, setError] = useState('');
+  const [expired, setExpired] = useState(false);
+  const [intakeKey, setIntakeKey] = useState(0);
+  const [showInbox, setShowInbox] = useState(false);
+  const epoch = useRef(0);
+  const readSequence = useRef(0);
+
+  const clearPrivateState = () => {
+    epoch.current += 1; readSequence.current += 1;
+    setReports([]); setSelected(null); setOpening(false); setShowInbox(false); setIntakeKey(value => value + 1);
+  };
+
+  function failure(problem: unknown) {
+    const message = problem instanceof Error ? problem.message : 'The request failed. Try again.';
+    setError(message);
+    if (problem instanceof ApiError && problem.status === 401) {
+      clearPrivateState(); setSession(null); setExpired(true); setLoading(false);
+    } else if (problem instanceof ApiError && problem.code === 'employee_required') {
+      clearPrivateState();
+      api<DemoSession>('/session').then(setSession).catch(failure);
+    }
+  }
+
+  async function restart() {
+    setLoading(true); setError('');
+    try { setSession(await api<DemoSession>('/session', { method: 'POST', body: {} })); setExpired(false); }
+    catch (problem) { failure(problem); } finally { setLoading(false); }
+  }
+
   useEffect(() => {
-    const abort = new AbortController();
-    const timer = window.setTimeout(() => abort.abort(), 4000);
-    fetch('/api/health', { signal: abort.signal }).then(async response => {
-      if (!response.ok) throw new Error('API unavailable');
-      const data = await response.json();
-      if (data.service !== 'unloop' || data.status !== 'ok') throw new Error('Wrong service');
-      setHealth('Local API connected');
-    }).catch(() => setHealth('Local API offline — start Flask on port 5001'))
-      .finally(() => window.clearTimeout(timer));
-    return () => { abort.abort(); window.clearTimeout(timer); };
+    let cancelled = false;
+    loadSession().then(value => { if (!cancelled) { setSession(value); setLoading(false); } })
+      .catch(problem => { if (!cancelled) { failure(problem); setLoading(false); } });
+    return () => { cancelled = true; };
   }, []);
-  const money = (value: string) => value === '—' ? value : '£' + value;
-  return <div className="app">
-    <header className="topbar"><a className="brand" href="/" aria-label="Unloop home"><span className="brandmark" aria-hidden="true">u</span>unloop</a><span className="preview-tag">Local design preview</span></header>
-    <main>
-      <div className="page-heading"><div><p className="breadcrumb">Expenses / Example report</p><h1>A clearer path to your claim.</h1><p className="intro">Keep the receipt. See what you can claim. Review it all in one place.</p></div><span className="draft">Example draft</span></div>
-      <aside className="preview-note"><strong>Synthetic examples only.</strong> These are expected outcomes, not AI results. Upload, sign-in and saving arrive in the next build phases.</aside>
-      <section className="report-context" aria-label="Example report details"><div><span>Report name</span><strong>Leicester client visit</strong></div><div><span>Business purpose</span><strong>Client workshop</strong></div><div><span>Manager</span><strong>manager@example.com</strong></div><div><span>Report currency</span><strong>GBP</strong></div></section>
-      <div className="workspace">
-        <aside className="examples"><h2>Meal examples</h2><p>Select an example to inspect its expected outcome.</p><div className="example-list">{examples.map((item, index) => <button key={item.title} aria-pressed={selected === index} onClick={() => { setSelected(index); setShowReceipt(true); }}><span className="example-type">{index === 2 ? 'Unclear meal' : item.type}</span><strong>{item.merchant}</strong><span>{money(item.amount)}</span></button>)}</div><button className="upload" disabled>Upload receipt · next phase</button><p className="small">One meal. One restaurant.<br/>One receipt.</p></aside>
-        <section className="expense" aria-labelledby="expense-heading">
-          <div className="section-heading"><div><p className="small">Expense details</p><h2 id="expense-heading">{example.title}</h2></div><span className={'status ' + (selected === 2 ? 'pending' : '')}>{example.status}</span></div>
-          <dl className="facts"><div><dt>Merchant</dt><dd>{example.merchant}</dd></div><div><dt>Receipt date</dt><dd>21 September 2026</dd></div><div><dt>Category</dt><dd>Meals</dd></div><div><dt>Meal type</dt><dd>{example.type}</dd></div></dl>
-          <div className="amounts"><div><span>Receipt amount</span><strong>{money(example.amount)}</strong><small>Original amount · GBP</small></div><div className="claim"><span>Claim amount</span><strong>{money(example.claim)}</strong><small>{example.claim === '—' ? 'Meal type needed' : 'After applying the meal allowance'}</small></div></div>
-          <div className="explanation" aria-live="polite"><p>{example.explanation}</p><dl><dt>Amount above policy limit</dt><dd>{money(example.excess)}</dd></dl><span className="small">Synthetic policy · {selected === 2 ? 'MEAL-01' : 'MEAL-03 / MEAL-04'}</span></div>
-          <div className="travel-fields" aria-label="Travel fields not applicable"><span>Cabin <strong>Not applicable</strong></span><span>Origin / destination <strong>Not applicable</strong></span></div>
-          <div className="actions"><p className="small">Your receipt amount always stays separate from your claim.</p><button disabled>Save expense · next phase</button></div>
-        </section>
-        <aside className="evidence"><div className="section-heading"><h2>Receipt evidence</h2><button className="text-button" onClick={() => setShowReceipt(!showReceipt)} aria-expanded={showReceipt}>{showReceipt ? 'Hide' : 'Show'} receipt</button></div>{showReceipt && <div className="receipt"><p className="synthetic">Synthetic receipt</p><h3>{example.merchant}</h3><p>Leicester, UK<br/>21 September 2026</p><hr/>{example.lines.map(line => <p className="receipt-line" key={line}>{line}</p>)}<hr/><p>Thank you for visiting.</p></div>}<p className="small">The original evidence stays available alongside the expense.</p></aside>
+
+  async function openReport(id: string) {
+    const generation = epoch.current, requestNumber = ++readSequence.current;
+    setOpening(true); setSelected(null); setError('');
+    try {
+      const report = await api<Report>(`/reports/${id}`);
+      if (generation === epoch.current && requestNumber === readSequence.current) {
+        setSelected(report); window.history.replaceState({}, '', `?report=${report.id}`);
+      }
+    } catch (problem) { if (generation === epoch.current) failure(problem); }
+    finally { if (generation === epoch.current && requestNumber === readSequence.current) setOpening(false); }
+  }
+
+  useEffect(() => {
+    if (!session) return;
+    if (session.persona !== 'employee') { setLoading(false); return; }
+    const controller = new AbortController(), generation = epoch.current;
+    setLoading(true);
+    api<{ reports: Report[] }>('/reports', { signal: controller.signal }).then(data => {
+      if (controller.signal.aborted || generation !== epoch.current) return;
+      setReports(data.reports);
+      const requested = new URLSearchParams(window.location.search).get('report');
+      const first = data.reports.find(report => report.id === requested) ?? data.reports[0];
+      if (first) void openReport(first.id);
+    }).catch(problem => { if (!controller.signal.aborted && generation === epoch.current) failure(problem); })
+      .finally(() => { if (!controller.signal.aborted && generation === epoch.current) setLoading(false); });
+    return () => { controller.abort(); };
+  }, [session?.profile.id, session?.persona]);
+
+  async function switchPersona(persona: Persona) {
+    if (!session || session.persona === persona) return;
+    clearPrivateState(); setSwitching(true); setError(''); window.history.replaceState({}, '', '/');
+    try { setSession(await api<DemoSession>('/session/persona', { method: 'PATCH', csrf: session.csrfToken, body: { persona } })); }
+    catch (problem) { failure(problem); } finally { setSwitching(false); }
+  }
+
+  const generation = epoch.current;
+  function saved(report: Report) {
+    if (generation !== epoch.current) return;
+    readSequence.current += 1; setOpening(false);
+    setReports(previous => [report, ...previous.filter(item => item.id !== report.id)]);
+    setSelected(report); setError(''); window.history.replaceState({}, '', `?report=${report.id}`);
+  }
+
+  return <div className="w-app">
+    <header className="w-topbar"><a className="brand" href="/" aria-label="Unloop home"><span className="brandmark" aria-hidden="true">u</span>unloop</a>
+      <div className="w-personas" role="group" aria-label="Demo persona">{(['employee', 'manager'] as Persona[]).map(persona => <button key={persona} aria-pressed={session?.persona === persona} disabled={!session || switching} onClick={() => void switchPersona(persona)}>{persona === 'employee' ? 'Employee' : 'Manager'}</button>)}</div>
+      <button className="w-inbox-button" disabled={!session || switching} onClick={() => setShowInbox(value => !value)} aria-expanded={showInbox}>Inbox</button>
+    </header>
+    <main className="w-main">
+      <div className="w-page-heading"><div><h1>{session?.persona === 'manager' ? 'Manager workspace' : 'Prepare your next report.'}</h1><p>One place to start, review and return to your expenses.</p></div>
+        {session && <p className="w-identity">{session.profile.displayName}{session.persona === 'employee' && <span>Grade {session.profile.grade} · fixed demo profile</span>}</p>}
       </div>
-      <footer><span>{health}</span><span>No data is saved in this preview.</span></footer>
+      <p className="w-session-note">Demo workspace. {session ? `Reports are available in this browser session until ${new Date(session.expiresAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}.` : 'Reports stay private to your demo session.'}</p>
+      {error && <div className="w-error" role="alert"><p>{error}</p>{!expired && <button className="w-text-button" onClick={() => window.location.reload()}>Reload workspace</button>}</div>}
+      {!session ? <section className="w-unavailable">{loading ? <p role="status">Opening your workspace…</p> : expired ? <><h2>Start a new demo session</h2><p>The previous session is no longer accessible. A new session starts with an empty workspace.</p><button className="w-primary" onClick={() => void restart()}>Start new demo session</button></> : <><h2>Workspace unavailable</h2><p>Restore the API and report storage, then reload this page.</p><button className="w-primary" onClick={() => window.location.reload()}>Try again</button></>}</section> : switching ? <p role="status">Switching persona…</p> : session.persona === 'manager' ?
+        <section className="w-manager-empty"><span className="w-draft-badge">Manager inbox</span><h2>No submitted reports</h2><p>Employee drafts stay private. Submission and manager review are not available yet.</p></section> :
+        <div className="w-layout"><ReportList reports={reports} selectedId={selected?.id} loading={loading} onSelect={id => void openReport(id)} onNew={() => { readSequence.current += 1; setSelected(null); setOpening(false); setIntakeKey(value => value + 1); window.history.replaceState({}, '', '/'); }}/>
+          <AstraIntake key={`${session.profile.id}:${intakeKey}`} session={session} onSaved={saved} onError={problem => { if (generation === epoch.current) failure(problem); }}/>
+          <ReportWorkspace report={selected} loading={opening}/></div>}
+      {showInbox && <section className="w-inbox" aria-label="Inbox"><h2>Inbox</h2><p>No inbox events yet. Submission and review will add events here when available.</p></section>}
+      <footer className="w-footer"><span>{session ? 'Demo workspace' : 'Unloop demo'}</span><a href="/?preview=1">View synthetic Meal preview</a></footer>
     </main>
   </div>;
 }

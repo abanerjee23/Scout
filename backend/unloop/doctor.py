@@ -1,8 +1,9 @@
 """Print setup presence only; never credentials and never a claim of connectivity."""
+
 import os
 
 SERVICES = {
-    "Supabase (Phase 1)": ["SUPABASE_URL", "SUPABASE_PUBLISHABLE_KEY", "DATABASE_URL"],
+    "PostgreSQL (Phase 1A)": ["DATABASE_URL"],
     "OpenAI (Phase 2)": ["OPENAI_API_KEY", "OPENAI_MODEL"],
     "Galileo (Phase 2)": ["GALILEO_API_KEY", "GALILEO_PROJECT"],
     "FX fallback (Phase 2)": ["OPEN_EXCHANGE_RATES_APP_ID"],

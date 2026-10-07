@@ -5,6 +5,18 @@ permissions:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: unloop
+          POSTGRES_PASSWORD: ci_test_only
+          POSTGRES_DB: unloop_test
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://unloop:ci_test_only@127.0.0.1:5432/unloop_test
+      REQUIRE_POSTGRES_TESTS: 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -14,13 +26,30 @@ jobs:
       - run: uv run ruff check backend scripts
       - run: uv run pytest -q
       - run: uv run python -m unloop.fixture_check
+      - run: uv run python -m unloop.worker --check
   frontend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: unloop
+          POSTGRES_PASSWORD: ci_test_only
+          POSTGRES_DB: unloop_test
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://unloop:ci_test_only@127.0.0.1:5432/unloop_test
     defaults:
       run:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.11.7'
+      - run: uv sync --frozen
+        working-directory: .
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -30,3 +59,26 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm test
+
+  supabase-smoke:
+    name: Opt-in live Supabase Phase 1A smoke
+    if: >-
+      github.repository == 'abanerjee23/UnLoop' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/codex/phase-1a' &&
+      vars.RUN_SUPABASE_SMOKE == 'true'
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.11.7'
+      - run: uv sync --frozen
+      - name: Isolated synthetic TLS PostgreSQL and HTTP restart smoke
+        env:
+          SUPABASE_SMOKE_DATABASE_URL: ${{ secrets.SUPABASE_SMOKE_DATABASE_URL }}
+        run: uv run --frozen python -m scripts.supabase_smoke

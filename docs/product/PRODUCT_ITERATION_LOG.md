@@ -5,7 +5,7 @@
 Created: 28 September 2026  
 Owner: Abhinav  
 Updated: 7 October 2026  
-Status: ITER-001 historical scaffold validation retained; ITER-002 documents reconciled; ITER-003 publishing baseline; revised Phase 1 next
+Status: ITER-004 Phase 1A local implementation validated; Supabase/provider and Git publication gates pending
 
 ## Purpose
 
@@ -45,7 +45,8 @@ The first cycle establishes the runnable foundation and labelled cases before li
 |---|---|---|---|---|
 | [ITER-001](#iter-001--runnable-foundation-and-meal-fixtures) | Phase 0 / make the first slice buildable and testable | Closed | Keep scaffold; its original auth next-action is superseded by ITER-002 | [Validation record](../validation/ITER-001_VALIDATION.md) |
 | [ITER-002](#iter-002--workflow-reconciliation-and-document-organization) | Reconcile agreed workflow and organize docs | Closed | Revised persona/Gmail/partial-approval plan; no app feature implementation | [Docs validation](../validation/DOCS_UPDATE_VALIDATION.md) |
-| [ITER-003](#iter-003--tested-baseline-and-phased-github-delivery) | Publish tested baseline and establish delivery cadence | Validating | Build/test/commit/push/check CI per increment | [Delivery workflow](DELIVERY_WORKFLOW.md) |
+| [ITER-003](#iter-003--tested-baseline-and-phased-github-delivery) | Publish tested baseline and establish delivery cadence | Validating | Local baseline `5fa19ba`; publication/CI pending | [Delivery workflow](DELIVERY_WORKFLOW.md) |
+| [ITER-004](#iter-004--confirmed-reports-in-isolated-demo-sessions) | Phase 1A / confirmed private reports | Closed (local); Supabase gate pending | Keep deterministic FastAPI/PostgreSQL slice | [Phase 1A validation](../validation/PHASE_1A_VALIDATION.md) |
 
 Suggested statuses: Planned, Building, Validating, Closed, Blocked. A closed cycle records a decision; it does not necessarily mean the attempted change succeeded.
 
@@ -171,3 +172,77 @@ Phase 0 should establish the runnable scaffold and labelled Meal cases. Validate
 **Decision:** pending local validation and CI.
 
 **Next increment:** Phase 1A persona sessions and confirmed reports, with live PostgreSQL configuration needed before its persistence gate can pass.
+
+### ITER-004 — Confirmed reports in isolated demo sessions
+
+**Date / phase:** 7 October 2026 / Phase 1A
+**Status:** Closed (local implementation); Supabase gate pending
+**Previous cycle:** ITER-003
+
+**Frame:** The employee cannot create or reopen a report. The synthetic workspace has no authoritative ownership or persona boundary.
+
+**Hypothesis:** deterministic Astra intake, explicit header confirmation and server-owned persona sessions backed by PostgreSQL deliver a useful first report workflow without model cost or later-phase dependencies.
+
+**Success criteria:** valid confirmed reports survive re-fetch and app restart; unconfirmed proposals create no report; dates include an explicit year; a second session and manager persona cannot access drafts; mutations require origin and session-bound CSRF protection; employee identity/grade remain server-seeded; baseline and new PostgreSQL/API/browser checks pass.
+
+**Implementation decisions:** user explicitly requested FastAPI/Python instead of Flask. Preserve health/fixture/schema/preview capabilities while migrating the API/test harness. One implementation agent on `codex/phase-1a`, no worktree. Scope excludes uploads, Gmail, extraction, policy, FX, submission, approval, Teams and RAG.
+
+**Baseline:** local scaffold checks passed (17 backend, 2 browser tests, Ruff, fixture integrity, worker check, build). Baseline commit `5fa19ba` establishes the previously uncommitted source. No Supabase connection is configured; disposable PostgreSQL validation is distinct from a Supabase integration claim.
+
+**Validation:** 69 backend tests and seven browser tests passed against real local PostgreSQL, including isolation, spoofing/CSRF, explicit confirmation, concurrent retry, reload and actual Uvicorn-process restart. Ruff/build/24-case fixture/worker checks passed; desktop/mobile screenshots inspected. [Validation record](../validation/PHASE_1A_VALIDATION.md) distinguishes local checks from external gates.
+
+**Improve — Keep:** bounded deterministic intake delivers the first real persisted workflow without model dependencies. The user-requested FastAPI migration preserves Phase 0 checks; synthetic Meal examples remain separate. No Phase 1B/1C functionality was implemented.
+
+**Limitations / next gate:** Supabase connectivity is unverified because no connection was configured. Hosted CI/publication has not run. Configure/verify these gates before treating 1A as fully signed off or starting 1B. The local implementation cycle closes with these explicit delivery/provider limitations, not a complete Phase 1 claim.
+
+### ITER-005 — Phase 1A date and database invariant hardening
+
+**Date / phase:** 7 October 2026 / Phase 1A
+
+**Status:** Closed (Cloud validation); hosted CI verification and Supabase gate pending
+
+**Previous cycle:** ITER-004
+
+**Frame:** Cloud review of PR #1 at `a020dbf` found mixed/incomplete dates silently discarded, SQL CHECK accepting employee null grade, and owner-only profile FK accepting a manager as report employee. Hypothesis: conservative date-signal validation and narrow database constraints close these gaps without changing the session/report workflow.
+
+**Success criteria:** reviewed date probes ask for clarification; supported explicit-year inputs remain valid; actual PostgreSQL rejects null/non-C employee grade, manager report profile and foreign-owner profile; existing databases upgrade safely; fresh/upgrade/downgrade/re-upgrade metadata and all regression gates pass. Keep deterministic intake, FastAPI, no model write authority, no new phase features.
+
+**Build:** one agent on existing tracking branch `codex/phase-1a`, no worktree. Added parser regression coverage, explicit non-null grade CHECK, fixed report employee-persona FK alongside existing owner FK, reversible `0002_phase1a_hardening`, readiness revision and actual PostgreSQL negative/backfill/rollback tests. Demo backfill repairs null grade to C and same-owner manager references to existing seeded employees; absent employee aborts atomically. Downgrade retains repaired values.
+
+**Validate:** frozen sync, Ruff, **88 backend tests / zero skips**, 24-case fixture integrity / zero model runs, worker check, npm ci/build and **7 Chromium browser tests / zero skips** passed in restored Cloud using disposable native PostgreSQL. Existing cookie/report survives migration. Missing employee upgrade fails with version/schema/report intact. [Cloud hardening evidence](../validation/PHASE_1A_VALIDATION.md#cloud-phase-1a-hardening--7-october-2026) records commands, runtime and limits.
+
+**Improve — Keep:** SQL null semantics and owner-versus-persona constraints need explicit negative database tests; passing API seeds alone did not prove those invariants. Deterministic intake conservatively asks for correction instead of discarding unsupported date signals. No extraction quality, model cost or provider integration is inferred.
+
+**Remaining gate:** verify this increment's hosted CI (Cloud GitHub API returned Forbidden), and separately verify a securely configured non-production Supabase connection. Do not merge or start 1B/1C in this task. Protected build plan/fixtures/held-out separation remain unchanged; no prompt tuning or correction learning.
+
+### ITER-006 — Prepare isolated opt-in Supabase persistence validation
+
+**Date / phase:** 7 October 2026 / Phase 1A validation
+
+**Status:** Closed — live Supabase gate VERIFIED at `8a88ac5eb3c1c41954f7a93654576df18a163e05`
+
+**Previous cycle:** ITER-005
+
+**Frame:** Cloud cannot directly reach the project's public PostgreSQL target through a supported exact TCP grant. Hypothesis: a branch-restricted, opt-in GitHub Actions job can validate live persistence using a privately supplied repository secret without moving the Cloud vault value or changing network infrastructure.
+
+**Success criteria:** real FastAPI HTTP confirmation/list/re-fetch/restart/owner/manager/grade checks in a unique migrated schema; target and TLS fail closed; public cannot be the migration fallback; logs never expose credentials/exception strings; normal failure cleans only the new schema; local test mode cannot substitute for live-provider success.
+
+**Build:** `scripts/supabase_smoke.py`, schema/TLS/timeout safety in existing helper, targeted guard/real-native-PostgreSQL tests and a restricted opt-in live job in existing `Checks` workflow. Only branch pushes after ordinary checks pass can use the secret; PR/fork/ordinary jobs cannot. [Concrete private setup/trigger instructions](../validation/SUPABASE_PHASE_1A_SMOKE.md) preserve the pending provider boundary.
+
+**Validate:** standalone local smoke passes with explicitly non-provider output. Full **113 backend tests and 7 browser tests / zero skips**, frozen sync, Ruff, 24-case fixture integrity / zero model runs, worker check and npm ci/build pass. Tests cover real subprocess restart, normal failure cleanup, non-TLS rejection, wrong-schema migration refusal and suppressed child failure logs. Mocked target/failure guards are not provider evidence.
+
+**Historical preparation decision (superseded by completion below):** live validation awaits user review, private repository secret and opt-in variable, then a harmless normal feature-branch push. No live schemas/data touched; no vault extraction/transfer, VPN/relay, merge, BUILD_PLAN/fixture changes or Phase 1B/1C work. The live Supabase gate remains UNVERIFIED until a recorded actual successful run.
+
+## Verified live provider evidence — 7 October 2026
+
+**VERIFIED** at exact commit `8a88ac5eb3c1c41954f7a93654576df18a163e05` on `codex/phase-1a`: [hosted push run 37652912234](https://github.com/abanerjee23/UnLoop/actions/runs/37652912234), [live job 112901079685](https://github.com/abanerjee23/UnLoop/actions/runs/37652912234/job/112901079685). At `2026-10-07T16:34:43.9015201Z` (17:34 Europe/London), the job emitted:
+
+```json
+{"status":"passed","mode":"live_supabase","project":"lchwjzunjqtakjdnzrze","tls":true,"migration":"0002_phase1a_hardening","http_restart_ownership_grade":true,"schema_cleanup":true}
+```
+
+Hosted backend **152 passed, zero skips** and Chromium **7 passed, zero skips**; Ruff, build, fixture integrity and worker checks passed. This proves synthetic isolated-schema persistence over client TLS, migration, explicit confirmation, list/re-fetch, process restart, ownership/persona/fixed-grade boundaries and cleanup against the live provider. It does not prove a deployed UI, production operation or public-schema migrations. Astra header intake remains deterministic; no live model was called. Phase 1B/1C are not implemented.
+
+After success the owner set `RUN_SUPABASE_SMOKE=false`; the repository secret remains private. Subsequent documentation pushes intentionally skip the live job while ordinary CI runs. Earlier failures and local-only results below are historical evidence, not outstanding provider blockers. Deployment and its production configuration remain separate work; PR #1 stays draft and unmerged.
+
+**Decision — Close ITER-006:** retain the bounded smoke and isolation checks; provider persistence gate is satisfied by the actual hosted run. No prompt tuning, correction learning, held-out changes or later-phase work occurred.
