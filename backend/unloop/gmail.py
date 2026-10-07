@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from unloop.api import ApiProblem, current_session, employee, mutation_session, resolve_session
 from unloop.evidence import bounded_validation, own_report, persist_checked, safe_filename
 from unloop.evidence_validation import InvalidDocument
-from unloop.gmail_provider import MAILBOX, GmailFailure
+from unloop.gmail_provider import MAILBOX, GmailFailure, decode_attachment
 from unloop.models import (
     DemoSession,
     GmailConnection,
@@ -191,6 +191,25 @@ def callback(request: Request):
         if len(codes) != 1 or not 1 <= len(codes[0]) <= 8192:
             raise GmailFailure("invalid_provider_response")
         tokens = adapter.tokens(code=codes[0])
+        # Token exchange may outlive revocation or session/state authority.
+        with Session(request.app.state.engine) as db:
+            owner = resolve_session(request, db, lock=False)
+            employee(owner)
+            item = db.get(GmailConnection, owner.id)
+            fresh_state = db.scalar(
+                select(GmailOAuthState).where(
+                    GmailOAuthState.token_hash == hashlib.sha256(state.encode()).hexdigest()
+                )
+            )
+            if (
+                owner.id != owner_id
+                or item is None
+                or item.version != expected
+                or fresh_state is None
+                or fresh_state.expires_at <= datetime.now(UTC)
+                or state_expiry <= datetime.now(UTC)
+            ):
+                raise GmailFailure("connection_changed")
         mailbox = adapter.profile(tokens["access_token"])
         with Session(request.app.state.engine) as db, db.begin():
             owner = current_session(request, db)
@@ -569,7 +588,21 @@ def run_scan_once(engine, settings, adapter):
                     db.get(GmailConnection, claim.session_id),
                 )
                 imported, consumed = current.imported, current.byte_count
-            content = adapter.attachment(token, message, identity)
+            try:
+                content = (
+                    decode_attachment(part["data"], part["size"])
+                    if "data" in part
+                    else adapter.attachment(token, message, identity)
+                )
+            except GmailFailure as failure:
+                if failure.code not in {
+                    "invalid_attachment",
+                    "invalid_provider_response",
+                    "provider_response_size",
+                }:
+                    raise
+                skipped += 1
+                continue
             if len(content) != part["size"] or consumed + len(content) > 40 * 1024 * 1024:
                 skipped += 1
                 continue

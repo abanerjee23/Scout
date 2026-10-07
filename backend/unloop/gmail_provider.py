@@ -250,6 +250,7 @@ class GoogleAdapter:
             f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{id}",
             token=token,
             params={"format": "full"},
+            limit=56 * 1024 * 1024 + 1024 * 1024,
         )
         try:
             if result.get("id") != id:
@@ -265,12 +266,31 @@ class GoogleAdapter:
                 pending.extend(part.get("parts", []))
                 if part.get("filename"):
                     body = part.get("body", {})
+                    try:
+                        identity = body.get("attachmentId")
+                        extra = {}
+                        if identity:
+                            identity = self.identifier(identity)
+                        else:
+                            part_id = part.get("partId")
+                            if (
+                                not isinstance(part_id, str)
+                                or len(part_id) > 128
+                                or not re.fullmatch(r"(?:[0-9]+(?:\.[0-9]+)*)?", part_id)
+                            ):
+                                raise ValueError
+                            identity = "inline:" + (part_id or "root")
+                            extra = {"data": body.get("data")}
+                        size = int(body.get("size", 0))
+                    except (GmailFailure, ValueError, TypeError, AttributeError):
+                        identity, size, extra = f"invalid:{len(parts)}", 0, {}
                     parts.append(
                         {
-                            "id": self.identifier(body.get("attachmentId")),
+                            "id": identity,
                             "name": str(part["filename"])[:512],
                             "mime": part.get("mimeType"),
-                            "size": int(body.get("size", 0)),
+                            "size": size,
+                            **extra,
                         }
                     )
             if pending or len(parts) > 50:
@@ -287,19 +307,21 @@ class GoogleAdapter:
             token=token,
             limit=14 * 1024 * 1024 + 1024,
         )
-        try:
-            value = result["data"]
-            if not isinstance(value, str) or len(value) > 14 * 1024 * 1024:
-                raise ValueError
-            content = base64.b64decode(
-                value + "=" * (-len(value) % 4), altchars=b"-_", validate=True
-            )
-            if len(content) != int(result["size"]) or not 0 < len(content) <= 10 * 1024 * 1024:
-                raise ValueError
-            return content
-        except (ValueError, KeyError, TypeError):
-            raise GmailFailure("invalid_attachment") from None
+        return decode_attachment(result.get("data"), result.get("size"))
 
     def revoke(self, token):
         # Google may return an empty JSON object; revocation failures remain distinguishable.
         self.request("POST", "https://oauth2.googleapis.com/revoke", data={"token": token})
+
+
+def decode_attachment(value, size):
+    """The same bounded strict decoder for external and inline named MIME parts."""
+    try:
+        if not isinstance(value, str) or len(value) > 14 * 1024 * 1024:
+            raise ValueError
+        content = base64.b64decode(value + "=" * (-len(value) % 4), altchars=b"-_", validate=True)
+        if len(content) != int(size) or not 0 < len(content) <= 10 * 1024 * 1024:
+            raise ValueError
+        return content
+    except (ValueError, TypeError):
+        raise GmailFailure("invalid_attachment") from None

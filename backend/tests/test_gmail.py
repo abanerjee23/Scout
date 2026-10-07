@@ -685,3 +685,223 @@ def test_search_truncation_processes_all_fifteen_ids_when_files_not_limit(gmail_
         assert db.scalar(select(GmailScan.cursor)) == 15
         assert db.scalar(select(GmailScan.truncated)) is True
         assert db.scalar(select(GmailScan.state)) == "partial"
+
+
+@pytest.mark.parametrize("flag", [True, False, None, "missing"])
+def test_actual_client_tls_flag(flag):
+    from types import SimpleNamespace
+
+    from unloop.database import verify_client_tls
+
+    pgconn = SimpleNamespace() if flag == "missing" else SimpleNamespace(ssl_in_use=flag)
+    connection = SimpleNamespace(
+        info=SimpleNamespace(
+            get_parameters=lambda: {"sslmode": "require", "gssencmode": "disable"}
+        ),
+        pgconn=pgconn,
+    )
+    if flag is True:
+        verify_client_tls(connection)
+    else:
+        with pytest.raises(RuntimeError, match="^Client TLS (inactive|verification unavailable)$"):
+            verify_client_tls(connection)
+
+
+@pytest.mark.parametrize("change", ["disconnect", "expiry", "persona", "state_expiry"])
+def test_callback_rechecks_before_profile(gmail_client, postgres, change, monkeypatch):
+    client, adapter, _ = gmail_client
+    _, headers = report_and_headers(client)
+    url = client.post("/api/gmail/connect", headers=headers, json={}).json()["authorizationUrl"]
+    state = parse_qs(urlsplit(url).query)["state"][0]
+    profiles = []
+    monkeypatch.setattr(adapter, "profile", lambda token: profiles.append(token))
+
+    def revoke():
+        if change == "disconnect":
+            assert client.post("/api/gmail/disconnect", headers=headers, json={}).status_code == 200
+        elif change == "state_expiry":
+            with postgres[1].begin() as db:
+                db.execute(
+                    GmailOAuthState.__table__.update().values(
+                        expires_at=datetime.now(UTC) - timedelta(seconds=1)
+                    )
+                )
+        else:
+            with postgres[1].begin() as db:
+                values = (
+                    {
+                        "created_at": datetime.now(UTC) - timedelta(hours=1),
+                        "expires_at": datetime.now(UTC) - timedelta(seconds=1),
+                    }
+                    if change == "expiry"
+                    else {"active_persona": "manager"}
+                )
+                db.execute(DemoSession.__table__.update().values(**values))
+
+    adapter.hook = revoke
+    response = client.get(
+        "/auth/google/callback",
+        params={"state": state, "code": "synthetic"},
+        follow_redirects=False,
+    )
+    assert not response.headers["location"].endswith("gmail=connected")
+    assert profiles == []
+    with postgres[1].connect() as db:
+        assert db.scalar(select(GmailConnection.encrypted_tokens)) is None
+
+
+def test_inline_original_provenance_dedup_reopen(gmail_client, postgres, app_config, monkeypatch):
+    import base64
+
+    client, adapter, _ = gmail_client
+    report, headers, _ = connected(gmail_client)
+    raw = image_bytes()
+    requests = []
+
+    def provider(method, url, **kwargs):
+        requests.append((url, kwargs))
+        return {
+            "id": url.rsplit("/", 1)[-1],
+            "internalDate": "1790899200000",
+            "payload": {
+                "parts": [
+                    {
+                        "partId": "0.1",
+                        "filename": "receipt.png",
+                        "mimeType": "image/png",
+                        "body": {
+                            "size": len(raw),
+                            "data": base64.urlsafe_b64encode(raw).decode().rstrip("="),
+                        },
+                    },
+                    {
+                        "partId": "0.2",
+                        "filename": "broken.png",
+                        "mimeType": "image/png",
+                        "body": {"size": 5, "data": "!bad!"},
+                    },
+                    {"filename": "bad.png", "mimeType": "image/png", "body": {}},
+                    {"partId": "0.3", "mimeType": "text/plain", "body": {"data": "aGVsbG8"}},
+                ]
+            },
+        }
+
+    monkeypatch.setattr(adapter, "request", provider)
+    monkeypatch.setattr(
+        adapter, "message", lambda token, id: GoogleAdapter.message(adapter, token, id)
+    )
+    scan(client, report, headers)
+    for _ in range(3):
+        assert run_scan_once(postgres[1], client.app.state.gmail_settings, adapter)
+    assert all(call[1]["limit"] == 57 * 1024 * 1024 for call in requests)
+    assert not any(call[0] == "attachment" for call in adapter.calls)
+    with postgres[1].connect() as db:
+        assert db.scalar(select(func.count()).select_from(Document)) == 1
+        assert db.scalar(select(func.count()).select_from(GmailImport)) == 2
+        assert set(db.scalars(select(GmailImport.attachment_id))) == {"inline:0.1"}
+        assert db.scalar(select(GmailScan.state)) == "partial"
+    import socket
+
+    import httpx
+
+    from backend.tests.test_process_restart import api_process
+
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    # Reopen in two actual API OS processes, not an in-memory fixture response.
+    for _ in range(2):
+        with api_process(
+            app_config["DATABASE_URL"], port, schema=app_config["UNLOOP_TEST_SCHEMA"]
+        ) as origin:
+            with httpx.Client(
+                base_url=origin, headers={"Cookie": "unloop_demo=" + client.cookies["unloop_demo"]}
+            ) as reopened:
+                rows = reopened.get(f"/api/reports/{report}/evidence").json()["documents"]
+                assert len(rows) == 1
+                assert reopened.get(f"/api/documents/{rows[0]['id']}/original").content == raw
+
+
+def test_inline_and_external_named_parts_over_fake_http(monkeypatch):
+    import base64
+
+    import httpx
+
+    raw = image_bytes()
+    payload = {
+        "id": "message1",
+        "internalDate": "1790899200000",
+        "payload": {
+            "parts": [
+                {
+                    "partId": "0.1",
+                    "filename": "inline.png",
+                    "mimeType": "image/png",
+                    "body": {"size": len(raw), "data": base64.urlsafe_b64encode(raw).decode()},
+                },
+                {
+                    "partId": "0.2",
+                    "filename": "external.png",
+                    "mimeType": "image/png",
+                    "body": {"size": len(raw), "attachmentId": "real-id"},
+                },
+            ]
+        },
+    }
+    original_client = httpx.Client
+    paths = []
+
+    def respond(request):
+        paths.append(request.url.path)
+        return httpx.Response(
+            200,
+            json=payload
+            if request.url.path.endswith("message1")
+            else payload["payload"]["parts"][0]["body"],
+        )
+
+    monkeypatch.setattr(
+        httpx,
+        "Client",
+        lambda **kwargs: original_client(transport=httpx.MockTransport(respond), **kwargs),
+    )
+    adapter = GoogleAdapter(None)
+    _, parts = adapter.message("synthetic", "message1")
+    inline = next(part for part in parts if part["id"] == "inline:0.1")
+    from unloop.gmail_provider import decode_attachment
+
+    assert decode_attachment(inline["data"], inline["size"]) == raw
+    assert adapter.attachment("synthetic", "message1", "real-id") == raw
+    assert paths == [
+        "/gmail/v1/users/me/messages/message1",
+        "/gmail/v1/users/me/messages/message1/attachments/real-id",
+    ]
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "https://user:pass@example.com",
+        "https://example.com?secret=x",
+        "https://example.com#fragment",
+    ],
+)
+def test_origin_rejects_non_origin_components(origin):
+    from unloop.database import Settings
+
+    with pytest.raises(ValueError, match="APP_ORIGIN"):
+        Settings.load({"APP_ORIGIN": origin})
+
+
+def test_production_tls_diagnostics_redact_driver_failure():
+    from types import SimpleNamespace
+
+    from unloop.database import postgres_engine, verify_client_tls
+
+    def fail():
+        raise ValueError("postgresql://user:private-password@private-host/db")
+
+    with pytest.raises(RuntimeError, match="^Client TLS verification unavailable$"):
+        verify_client_tls(SimpleNamespace(info=SimpleNamespace(get_parameters=fail)))
+    with pytest.raises(ValueError, match="TCP target"):
+        postgres_engine("postgresql://user@/db", production=True)

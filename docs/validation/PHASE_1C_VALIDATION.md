@@ -1,6 +1,6 @@
 # Phase 1C — Consent-bound Gmail and early deployment preparation
 
-7 October 2026 (Europe/London). Branch `codex/phase-1c` from merged main `bb971287919639e0d1c3cba2876f841a9cdfba85` (PR #2). **Local implementation validated; hosted CI, Railway deployment and actual authorized Gmail attachment retrieval remain gates.** OAuth is optional mailbox access, never app login or manager authority. FastAPI/Python; no Supabase Auth or model/policy/approval calls.
+7 October 2026 (Europe/London). Branch `codex/phase-1c` from merged main `bb971287919639e0d1c3cba2876f841a9cdfba85` (PR #2). **Local implementation and initial hosted CI validated; Railway deployment and actual authorized Gmail attachment retrieval remain gates.** OAuth is optional mailbox access, never app login or manager authority. FastAPI/Python; no Supabase Auth or model/policy/approval calls.
 
 ## Boundaries implemented
 
@@ -29,6 +29,16 @@ Migration `0004_phase1c_gmail` adds only connections, OAuth states, scans/import
 
 Earlier full tests caught stale Phase 1B readiness/table expectations; those were updated, retaining all tests. Initial container runtime exposed non-root readability of newly created source files; the image now grants read/traverse permissions to its secret-free application tree. No global network change or credential extraction. BUILD_PLAN, held-out fixtures and archive remain unchanged; no correction learning.
 
+## Lead-review follow-up
+
+Initial published commit `69f582abb4364f8f98cece00b9b2ab53c4476f76`, draft [PR #3](https://github.com/abanerjee23/UnLoop/pull/3), passed [hosted run 37679353634](https://github.com/abanerjee23/UnLoop/actions/runs/37679353634): 226 backend / 10 browser, zero skips; live Supabase deliberately skipped.
+
+Named JPEG/PNG/PDF parts now support inline `body.data` and external attachment retrieval through the same strict base64/size/parser/storage pipeline. External provenance retains the real attachment ID; inline provenance uses the disjoint `inline:<partId>` namespace (`inline:root` for the root part). Full-message JSON is bounded at 57 MiB to accommodate a 40 MiB base64 payload plus framing; actual imports retain 10 MiB/file, ten files and 40 MiB total limits. Malformed named attachments are skipped without losing supported siblings; unnamed body text remains excluded.
+
+Production connections require TCP, enforced TLS modes/GSS encryption disabled and actual driver `pgconn.ssl_in_use is True`; missing/false/error fails closed with fixed sanitized diagnostics. A fresh unlocked session/persona/state-expiry/connection-version check now separates token exchange from profile retrieval, with the final locking credential-write check retained. Exact origins reject userinfo/query/fragment.
+
+Focused follow-up regressions: **14 passed, 40 deselected, zero skips**; fake HTTP adapter and real PostgreSQL inline originals/provenance/dedup/API recreation, revocation/expiry/persona during exchange, actual TLS true/false/missing/error and origin guards. This remains offline provider proof. **Complete follow-up backend: 240 passed, zero skips, one existing warning (82.59s), with `REQUIRE_POSTGRES_TESTS=true CI=true GITHUB_ACTIONS=true`.** After that run, the inline reopen regression was strengthened to two actual API OS processes: one passed, 53 deselected, zero skips (3.53s); no application code changed after the complete run. No migration, UI or image changes; prior Chromium/image checks are historical exact-commit evidence rather than rerun claims.
+
 ## Remaining live gates
 
-Parent reviews/publishes the exact tested branch and runs hosted CI. Deployment instructions are in [Phase 1C deployment handoff](../integrations/PHASE_1C_DEPLOYMENT.md). Private DB URI/client secret/keyring and exact HTTPS callback must be configured outside Cloud. Prove live consent, attachment hash/download/restart, refresh/revocation/owner isolation and real worker completion on Railway before marking Phase 1C/whole Phase 1 complete. Previous Phase 1B Supabase success is provider engine/evidence proof at its exact commit, not a new Gmail or deployment result. `RUN_SUPABASE_SMOKE=false` remains disabled; no skipped gate is a pass.
+Parent reviews/publishes the follow-up and its hosted CI; PR #3 remains draft. Deployment instructions are in [Phase 1C deployment handoff](../integrations/PHASE_1C_DEPLOYMENT.md). Private DB URI/client secret/keyring and exact HTTPS callback must be configured outside Cloud. Prove live consent, attachment hash/download/restart, refresh/revocation/owner isolation and real worker completion on Railway before marking Phase 1C/whole Phase 1 complete. Previous Phase 1B Supabase success is provider engine/evidence proof at its exact commit, not a new Gmail or deployment result. `RUN_SUPABASE_SMOKE=false` remains disabled; no skipped gate is a pass.

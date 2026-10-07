@@ -3,7 +3,7 @@
 import os
 import re
 from dataclasses import dataclass
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import make_url
@@ -24,7 +24,15 @@ class Settings:
         values = {**os.environ, **(overrides or {})}
         origin = values.get("APP_ORIGIN", "http://127.0.0.1:5173").rstrip("/")
         parts = urlsplit(origin)
-        if parts.scheme not in {"http", "https"} or not parts.netloc or parts.path:
+        if (
+            parts.scheme not in {"http", "https"}
+            or not parts.netloc
+            or parts.path
+            or parts.username
+            or parts.password
+            or parts.query
+            or parts.fragment
+        ):
             raise ValueError("APP_ORIGIN must be an exact HTTP(S) origin without a path")
         secure = str(values.get("SESSION_COOKIE_SECURE", "true")).lower()
         if secure not in {"true", "false"}:
@@ -69,6 +77,8 @@ def postgres_engine(database_url: str, *, schema=None, production=False):
         raise ValueError("Unloop persistence requires PostgreSQL")
     args = {"connect_timeout": 5}
     if production:
+        if not url.host or "/" in unquote(url.host):
+            raise ValueError("Production PostgreSQL requires a TCP target")
         # Never permit URI overrides to turn off transport protection or schema controls.
         if set(url.query) - {"sslmode"} or url.query.get("sslmode", "require") not in {
             "require",
@@ -90,12 +100,7 @@ def postgres_engine(database_url: str, *, schema=None, production=False):
 
         @event.listens_for(engine, "connect")
         def enforce_tls(dbapi_connection, _record):
-            modes = dbapi_connection.info.get_parameters()
-            if (
-                modes.get("sslmode") not in {"require", "verify-ca", "verify-full"}
-                or modes.get("gssencmode") != "disable"
-            ):
-                raise RuntimeError("Client TLS enforcement failed")
+            verify_client_tls(dbapi_connection)
 
     if schema is not None:
 
@@ -119,3 +124,19 @@ def postgres_engine(database_url: str, *, schema=None, production=False):
                 raise
 
     return engine
+
+
+def verify_client_tls(connection):
+    """Fail closed on actual client transport; never reflect driver exceptions."""
+    try:
+        modes = connection.info.get_parameters()
+        active = connection.pgconn.ssl_in_use
+    except Exception:
+        raise RuntimeError("Client TLS verification unavailable") from None
+    if (
+        modes.get("sslmode") not in {"require", "verify-ca", "verify-full"}
+        or modes.get("gssencmode") != "disable"
+    ):
+        raise RuntimeError("Client TLS enforcement failed")
+    if active is not True:
+        raise RuntimeError("Client TLS inactive")
