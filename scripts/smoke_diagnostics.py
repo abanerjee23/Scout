@@ -30,6 +30,14 @@ class DiagnosticFailure(Exception):
 
 
 def safe_error_code(error):
+    tls_code = getattr(error, "tls_code", None)
+    if tls_code in {
+        "client_tls_not_active",
+        "client_tls_state_missing",
+        "client_tls_state_unknown",
+        "client_tls_state_error",
+    }:
+        return tls_code
     driver = getattr(error, "orig", error)
     state = getattr(driver, "sqlstate", None) or getattr(driver, "pgcode", None)
     if isinstance(state, str):

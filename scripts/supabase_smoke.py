@@ -16,7 +16,7 @@ import httpx
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 
-from scripts.postgres_test_support import ROOT, isolated_database
+from scripts.postgres_test_support import ROOT, client_tls_in_use, isolated_database
 from scripts.smoke_diagnostics import DiagnosticFailure, diagnostic_phase, safe_error_code
 
 PROJECT_REF = "lchwjzunjqtakjdnzrze"
@@ -63,6 +63,7 @@ def validate_target(raw_url, *, local_test=False):
             require(
                 url.query.get("sslmode") in {"require", "verify-ca", "verify-full"}, "tls_required"
             )
+            url = url.update_query_dict({"gssencmode": "disable"})
     except SmokeFailure:
         raise
     except Exception:
@@ -139,7 +140,7 @@ def run_smoke(database_url, *, live):
                 bool(re.fullmatch(r"unloop_test_[0-9a-f]{32}", schema or "")),
                 "isolated_schema_required",
             )
-            tls = connection.scalar(text("SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()"))
+            tls = client_tls_in_use(connection)
             require(not live or tls is True, "connection_tls_not_active")
             require(
                 connection.scalar(text("SELECT version_num FROM alembic_version")) == REVISION,

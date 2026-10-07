@@ -13,6 +13,30 @@ from unloop.database import postgres_engine
 ROOT = Path(__file__).resolve().parents[1]
 
 
+class TLSVerificationError(RuntimeError):
+    def __init__(self, code):
+        self.tls_code = code
+        super().__init__("TLS connection required")
+
+
+def client_tls_in_use(connection):
+    """Read libpq's negotiated client hop, including when connected to a pooler."""
+    try:
+        value = connection.connection.driver_connection.pgconn.ssl_in_use
+    except AttributeError:
+        raise TLSVerificationError("client_tls_state_missing") from None
+    except Exception:
+        raise TLSVerificationError("client_tls_state_error") from None
+    if type(value) is not bool:
+        raise TLSVerificationError("client_tls_state_unknown")
+    return value
+
+
+def require_client_tls(connection):
+    if not client_tls_in_use(connection):
+        raise TLSVerificationError("client_tls_not_active")
+
+
 def migrate(engine):
     config = Config(str(ROOT / "alembic.ini"))
     with engine.begin() as connection:
@@ -32,14 +56,8 @@ def isolated_database(test_url: str, *, require_tls=False, phase=None):
             connection.execute(text("SET LOCAL statement_timeout = '10s'"))
             connection.execute(text("SET LOCAL lock_timeout = '5s'"))
             with phase("admin_tls"):
-                if (
-                    require_tls
-                    and connection.scalar(
-                        text("SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()")
-                    )
-                    is not True
-                ):
-                    raise RuntimeError("TLS connection required")
+                if require_tls:
+                    require_client_tls(connection)
             with phase("schema_creation"):
                 connection.execute(text(f'CREATE SCHEMA "{schema}"'))
         created = True
@@ -55,14 +73,8 @@ def isolated_database(test_url: str, *, require_tls=False, phase=None):
                 if connection.scalar(text("SELECT current_schema()")) != schema:
                     raise RuntimeError("Isolated schema selection failed")
             with phase("scoped_tls"):
-                if (
-                    require_tls
-                    and connection.scalar(
-                        text("SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()")
-                    )
-                    is not True
-                ):
-                    raise RuntimeError("TLS connection required")
+                if require_tls:
+                    require_client_tls(connection)
         with phase("migration"):
             migrate(engine)
         yield scoped, engine

@@ -104,3 +104,59 @@ def test_ipv6_classification_is_bounded_and_does_not_rewrite_secret(monkeypatch,
     assert "synthetic-secret" not in repr(calls)
     assert smoke.direct_ipv6_only_after_failure(uri, "auth_failed", "admin_connection") is False
     assert len(calls) == 1
+
+
+@pytest.mark.parametrize("value", [True, False])
+def test_psycopg_client_tls_reads_negotiated_boolean(value):
+    from scripts.postgres_test_support import client_tls_in_use
+
+    connection = SimpleNamespace(
+        connection=SimpleNamespace(
+            driver_connection=SimpleNamespace(pgconn=SimpleNamespace(ssl_in_use=value))
+        )
+    )
+    assert client_tls_in_use(connection) is value
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        (False, "client_tls_not_active"),
+        (None, "client_tls_state_unknown"),
+        ("true", "client_tls_state_unknown"),
+    ],
+)
+def test_client_tls_fails_closed_with_fixed_code(value, expected):
+    from scripts.postgres_test_support import require_client_tls
+
+    connection = SimpleNamespace(
+        connection=SimpleNamespace(
+            driver_connection=SimpleNamespace(pgconn=SimpleNamespace(ssl_in_use=value))
+        )
+    )
+    with pytest.raises(DiagnosticFailure) as error:
+        with diagnostic_phase("admin_tls"):
+            require_client_tls(connection)
+    assert error.value.stage == "admin_tls" and error.value.code == expected
+
+
+@pytest.mark.parametrize("missing", [True, False])
+def test_missing_or_error_tls_state_is_sanitized(missing, capsys):
+    from scripts.postgres_test_support import require_client_tls
+
+    class BrokenPGconn:
+        @property
+        def ssl_in_use(self):
+            raise RuntimeError("credential=" + SECRET)
+
+    pgconn = SimpleNamespace() if missing else BrokenPGconn()
+    connection = SimpleNamespace(
+        connection=SimpleNamespace(driver_connection=SimpleNamespace(pgconn=pgconn))
+    )
+    with pytest.raises(DiagnosticFailure) as error:
+        with diagnostic_phase("scoped_tls"):
+            require_client_tls(connection)
+    assert error.value.code == ("client_tls_state_missing" if missing else "client_tls_state_error")
+    assert error.value.stage == "scoped_tls" and str(error.value) == ""
+    output = capsys.readouterr()
+    assert not output.out and not output.err

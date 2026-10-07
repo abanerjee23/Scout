@@ -7,7 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import make_url
 
 from scripts import supabase_smoke as smoke
-from scripts.postgres_test_support import isolated_database
+from scripts.postgres_test_support import client_tls_in_use, isolated_database
 
 POOLER = "aws-0-eu-west-2.pooler.supabase.com"
 PROJECT = smoke.PROJECT_REF
@@ -24,7 +24,9 @@ VALID = f"postgresql://postgres.{PROJECT}:synthetic-password@{POOLER}:5432/postg
     ],
 )
 def test_live_target_accepts_only_expected_project_tls(url):
-    assert smoke.validate_target(url) == url
+    normalized = make_url(smoke.validate_target(url))
+    assert normalized.query["gssencmode"] == "disable"
+    assert normalized.set(query=make_url(url).query) == make_url(url)
 
 
 @pytest.mark.parametrize(
@@ -37,7 +39,7 @@ def test_live_target_accepts_only_expected_project_tls(url):
 def test_missing_tls_mode_is_normalized_without_changing_login(host, username):
     raw = f"postgresql://{username}:synthetic%40password@{host}:5432/postgres"
     normalized = make_url(smoke.validate_target(raw))
-    assert normalized.query == {"sslmode": "require"}
+    assert normalized.query == {"sslmode": "require", "gssencmode": "disable"}
     assert normalized.set(query={}) == make_url(raw)
     assert normalized.password == "synthetic@password"
 
@@ -132,7 +134,7 @@ def test_real_local_assertion_failure_cleans_only_own_schema(postgres, monkeypat
 
 def test_native_non_tls_connection_refused_before_schema_creation(postgres):
     with postgres[1].connect() as connection:
-        tls = connection.scalar(text("SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()"))
+        tls = client_tls_in_use(connection)
     if tls:
         # On TLS-enabled ordinary CI PostgreSQL, success is also a valid engine check.
         with isolated_database(postgres[0], require_tls=True):
