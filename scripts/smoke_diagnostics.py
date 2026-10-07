@@ -19,6 +19,9 @@ STAGES = frozenset(
         "http_flow",
         "http_restart",
         "schema_cleanup",
+        "evidence_upload",
+        "worker_recovery",
+        "evidence_restart",
     }
 )
 

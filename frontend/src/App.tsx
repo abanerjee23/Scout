@@ -21,6 +21,7 @@ function Workspace() {
   const [expired, setExpired] = useState(false);
   const [intakeKey, setIntakeKey] = useState(0);
   const [showInbox, setShowInbox] = useState(false);
+  const [evidenceRefresh, setEvidenceRefresh] = useState(0);
   const epoch = useRef(0);
   const readSequence = useRef(0);
 
@@ -110,8 +111,8 @@ function Workspace() {
       {!session ? <section className="w-unavailable">{loading ? <p role="status">Opening your workspace…</p> : expired ? <><h2>Start a new demo session</h2><p>The previous session is no longer accessible. A new session starts with an empty workspace.</p><button className="w-primary" onClick={() => void restart()}>Start new demo session</button></> : <><h2>Workspace unavailable</h2><p>Restore the API and report storage, then reload this page.</p><button className="w-primary" onClick={() => window.location.reload()}>Try again</button></>}</section> : switching ? <p role="status">Switching persona…</p> : session.persona === 'manager' ?
         <section className="w-manager-empty"><span className="w-draft-badge">Manager inbox</span><h2>No submitted reports</h2><p>Employee drafts stay private. Submission and manager review are not available yet.</p></section> :
         <div className="w-layout"><ReportList reports={reports} selectedId={selected?.id} loading={loading} onSelect={id => void openReport(id)} onNew={() => { readSequence.current += 1; setSelected(null); setOpening(false); setIntakeKey(value => value + 1); window.history.replaceState({}, '', '/'); }}/>
-          <AstraIntake key={`${session.profile.id}:${intakeKey}`} session={session} onSaved={saved} onError={problem => { if (generation === epoch.current) failure(problem); }}/>
-          <ReportWorkspace report={selected} loading={opening}/></div>}
+          <AstraIntake key={`${session.profile.id}:${intakeKey}`} session={session} report={selected} refresh={evidenceRefresh} onUploaded={() => setEvidenceRefresh(value => value + 1)} onSaved={saved} onError={problem => { if (generation === epoch.current) failure(problem); }}/>
+          <ReportWorkspace report={selected} loading={opening} session={session} refresh={evidenceRefresh} onUploaded={() => setEvidenceRefresh(value => value + 1)} onError={failure}/></div>}
       {showInbox && <section className="w-inbox" aria-label="Inbox"><h2>Inbox</h2><p>No inbox events yet. Submission and review will add events here when available.</p></section>}
       <footer className="w-footer"><span>{session ? 'Demo workspace' : 'Unloop demo'}</span><a href="/?preview=1">View synthetic Meal preview</a></footer>
     </main>

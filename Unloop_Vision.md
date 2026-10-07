@@ -4,7 +4,7 @@
 
 Updated: 7 October 2026  
 Owner: Abhinav  
-Status: agreed product direction; Phase 1A confirmed-report workspace verified locally on FastAPI/PostgreSQL; Supabase smoke pending. Evidence/AI/review workflows remain unimplemented.
+Status: Phase 1A confirmed-report workspace verified locally and on live Supabase and merged. Phase 1B retained uploads/validation jobs implemented with hosted/live gates pending; Gmail/AI/review remain unimplemented. See [current ledger](docs/product/BUILD_STATUS.md).
 
 This is the product source of truth. [Architecture](Architecture.md) defines system responsibilities and [build plan](BUILD_PLAN.md) defines delivery order. The 7 October decisions below supersede the previous login, manual-only intake and employee-led post-submission split design. Previous versions are preserved in [archive](archive/README.md). The hackathon plan in the separate UnLoop folder is reference material, not this repository's governing plan.
 
@@ -120,4 +120,4 @@ Proposed first targets are 95% required-field accuracy on supported readable hel
 
 Retain separate development/held-out datasets and evaluate RAG against a full-policy-context baseline. Trace model/prompt/schema/policy versions, latency and cost from the first live run. Record measured product iterations in the [iteration log](docs/product/PRODUCT_ITERATION_LOG.md); this engineering process does not introduce learning from customer corrections.
 
-Phase 0 retains its synthetic preview, schema and fixtures. Phase 1A now adds persona sessions, deterministic chat-led header review/confirmation and PostgreSQL-backed report reopen, verified locally. The Supabase persistence gate remains unverified. Durable manual/Gmail evidence intake and all later workflows remain to be built; no complete Phase 1 or real receipt-processing claim is made. See [Phase 1A evidence](docs/validation/PHASE_1A_VALIDATION.md).
+Phase 0 retains its synthetic preview, schema and fixtures. Phase 1A now adds persona sessions, deterministic chat-led header review/confirmation and PostgreSQL-backed report reopen, verified locally and on live Supabase, merged in PR #1. Phase 1B adds retained manual evidence and recoverable structural-validation jobs; its own provider gate remains pending. Gmail and all later workflows remain to be built; no complete Phase 1 or real receipt-processing claim is made. See [Phase 1A evidence](docs/validation/PHASE_1A_VALIDATION.md).

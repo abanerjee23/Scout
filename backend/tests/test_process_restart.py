@@ -91,6 +91,17 @@ def test_report_and_session_survive_an_actual_process_restart(app_config):
         )
         assert result.status_code == 201
         report = result.json()
+        from backend.tests.test_evidence import image_bytes
+
+        content = image_bytes()
+        uploaded = client.post(
+            f"/api/reports/{report['id']}/evidence",
+            headers=headers,
+            data={"source": "workspace"},
+            files={"files": ("receipt.png", content, "image/png")},
+        )
+        assert uploaded.status_code == 201
+        document_id = uploaded.json()["documents"][0]["id"]
         cookies = dict(client.cookies)
     with (
         api_process(
@@ -102,3 +113,8 @@ def test_report_and_session_survive_an_actual_process_restart(app_config):
         assert restarted.get("/api/session").json()["persona"] == "employee"
         assert restarted.get(f"/api/reports/{report['id']}").json() == report
         assert restarted.get("/api/reports").json()["reports"] == [report]
+        assert restarted.get(f"/api/documents/{document_id}/original").content == content
+        assert (
+            restarted.get(f"/api/reports/{report['id']}/evidence").json()["documents"][0]["id"]
+            == document_id
+        )

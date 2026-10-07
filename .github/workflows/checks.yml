@@ -61,11 +61,11 @@ jobs:
       - run: npm test
 
   supabase-smoke:
-    name: Opt-in live Supabase Phase 1A smoke
+    name: Opt-in live Supabase Phase 1B smoke
     if: >-
       github.repository == 'abanerjee23/UnLoop' &&
       github.event_name == 'push' &&
-      github.ref == 'refs/heads/codex/phase-1a' &&
+      github.ref == 'refs/heads/codex/phase-1b' &&
       vars.RUN_SUPABASE_SMOKE == 'true'
     needs: [backend, frontend]
     runs-on: ubuntu-latest

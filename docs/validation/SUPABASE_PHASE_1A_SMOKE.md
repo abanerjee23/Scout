@@ -1,5 +1,7 @@
 # Opt-in live Supabase Phase 1A smoke
 
+Current continuation: PR #1 is merged at main `ac277d7`. The Phase 1A success below remains historical verified evidence. The smoke now targets the opt-in exact `codex/phase-1b` branch and current migration head; see [Phase 1B validation](PHASE_1B_VALIDATION.md). Its new provider gate is pending and the opt-in remains disabled.
+
 ## Verified live provider evidence — 7 October 2026
 
 **VERIFIED** at exact commit `8a88ac5eb3c1c41954f7a93654576df18a163e05` on `codex/phase-1a`: [hosted push run 37652912234](https://github.com/abanerjee23/UnLoop/actions/runs/37652912234), [live job 112901079685](https://github.com/abanerjee23/UnLoop/actions/runs/37652912234/job/112901079685). At `2026-10-07T16:34:43.9015201Z` (17:34 Europe/London), the job emitted:

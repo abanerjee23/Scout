@@ -246,3 +246,19 @@ Hosted backend **152 passed, zero skips** and Chromium **7 passed, zero skips**;
 After success the owner set `RUN_SUPABASE_SMOKE=false`; the repository secret remains private. Subsequent documentation pushes intentionally skip the live job while ordinary CI runs. Earlier failures and local-only results below are historical evidence, not outstanding provider blockers. Deployment and its production configuration remain separate work; PR #1 stays draft and unmerged.
 
 **Decision — Close ITER-006:** retain the bounded smoke and isolation checks; provider persistence gate is satisfied by the actual hosted run. No prompt tuning, correction learning, held-out changes or later-phase work occurred.
+
+### ITER-007 — Shared retained evidence and recoverable validation jobs
+
+**Date / phase:** 7 October 2026 / Phase 1B
+**Status:** Locally validated, hosted/live review pending; one Cloud implementation agent on `codex/phase-1b`, based on merged main `ac277d74496742deb584cdea16233b8ace0091a2`.
+
+**Hypothesis:** a shared chat/workspace pipeline with private retained originals, session-scoped deduplication and leased PostgreSQL validation jobs makes evidence reusable and recoverable before Gmail or AI integration.
+
+**Acceptance criteria:** JPEG/PNG/PDF signature/MIME/validity/hash checks; limits 10 MiB/document, ten pages and ten files/batch; original-byte reopen; report/source provenance; no cross-session/manager access or existence leaks; employee origin/CSRF mutations; concurrent dedup; bounded attempts/leases/timeouts, stale-result refusal and interrupted-worker recovery; desktop/mobile honest queued/validated/failed/retry states; complete real PostgreSQL/backend/browser baseline passes. No extraction/claim is fabricated. Preserve BUILD_PLAN, fixtures, archive and held-out separation.
+
+
+**Build:** one shared multipart pipeline; structural JPEG/PNG/PDF validation in bounded subprocesses; separate PostgreSQL bytes, owner/hash uniqueness and report/source provenance; revision-keyed jobs with three attempts, 30s leases and idempotent/stale-safe finishes; shared upload component and honest polling/retry/download states. No AI or expense amounts.
+
+**Validate:** **182 backend / 9 Chromium passed, zero skips** with required native PostgreSQL and CI flags. Frozen sync/Ruff/24-case fixture integrity (zero model runs)/worker check/npm ci/build passed. Real worker OS-process exit after committed claim recovers in a new process; full provider script runs locally with real HTTP/worker/bytes/restart/cleanup assertions. Fresh/0002 upgrade/downgrade/re-upgrade/Alembic alignment pass. Desktop/mobile screenshots inspected. Earlier migration-table and multipart exception-boundary failures were corrected; final suites pass.
+
+**Decision — Keep, pending hosted gates:** ordinary CI and reviewed opt-in Phase 1B Supabase smoke must pass before parent merge; `RUN_SUPABASE_SMOKE=false` remains disabled, not provider proof. Phase 1A live success is already verified and PR #1 merged. No Cloud provider secret/TCP, BUILD_PLAN/fixture/archive changes, correction learning, policy activation or paid work. Phase 1C and later remain unimplemented. Current handoff authority/evidence lives in [BUILD_STATUS](BUILD_STATUS.md).
