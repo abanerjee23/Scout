@@ -4,6 +4,7 @@ from datetime import date, datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
+    JSON,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -151,7 +152,7 @@ class EvidenceLink(Base):
             ondelete="CASCADE",
         ),
         UniqueConstraint("report_id", "document_id", "source", name="evidence_report_source_once"),
-        CheckConstraint("source IN ('chat', 'workspace')", name="evidence_source"),
+        CheckConstraint("source IN ('chat', 'workspace', 'gmail')", name="evidence_source"),
     )
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     session_id: Mapped[UUID]
@@ -193,3 +194,116 @@ class EvidenceJob(Base):
     lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     failure_code: Mapped[str | None] = mapped_column(String(32))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class GmailConnection(Base):
+    __tablename__ = "gmail_connections"
+    session_id: Mapped[UUID] = mapped_column(
+        ForeignKey("demo_sessions.id", ondelete="CASCADE"), primary_key=True
+    )
+    version: Mapped[UUID] = mapped_column(default=uuid4)
+    credential_revision: Mapped[int] = mapped_column(default=1)
+    mailbox: Mapped[str | None] = mapped_column(String(100))
+    encrypted_tokens: Mapped[bytes | None] = mapped_column(LargeBinary)
+    key_version: Mapped[str | None] = mapped_column(String(32))
+    status: Mapped[str] = mapped_column(String(32), default="disconnected")
+    __table_args__ = (
+        CheckConstraint("credential_revision > 0", name="gmail_credential_revision"),
+        CheckConstraint(
+            "status IN ('connected', 'disconnected', 'reconnect_required')",
+            name="gmail_connection_status",
+        ),
+        CheckConstraint(
+            "(status = 'connected' AND encrypted_tokens IS NOT NULL "
+            "AND key_version IS NOT NULL AND mailbox = 'aban.hackathon@gmail.com') "
+            "OR (status != 'connected' AND encrypted_tokens IS NULL AND key_version IS NULL)",
+            name="gmail_token_state",
+        ),
+    )
+
+
+class GmailOAuthState(Base):
+    __tablename__ = "gmail_oauth_states"
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    session_id: Mapped[UUID] = mapped_column(ForeignKey("demo_sessions.id", ondelete="CASCADE"))
+    connection_version: Mapped[UUID]
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used: Mapped[bool] = mapped_column(default=False)
+
+
+class GmailScan(Base):
+    __tablename__ = "gmail_scans"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["session_id", "report_id"],
+            ["reports.session_id", "reports.id"],
+            name="gmail_scan_report_owner",
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint("session_id", "id", name="gmail_scan_owner_id"),
+        CheckConstraint(
+            "state IN ('queued', 'processing', 'complete', 'partial', 'failed', 'cancelled')",
+            name="gmail_scan_state",
+        ),
+        CheckConstraint(
+            "attempts BETWEEN 0 AND 3 AND cursor BETWEEN 0 AND 15 "
+            "AND imported BETWEEN 0 AND 10 AND byte_count BETWEEN 0 AND 41943040",
+            name="gmail_scan_bounds",
+        ),
+        CheckConstraint(
+            "(state = 'processing' AND lease_token IS NOT NULL AND lease_until IS NOT NULL) "
+            "OR (state != 'processing' AND lease_token IS NULL AND lease_until IS NULL)",
+            name="gmail_scan_lease",
+        ),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID]
+    report_id: Mapped[UUID]
+    report_fingerprint: Mapped[str] = mapped_column(String(64))
+    connection_version: Mapped[UUID]
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    window_end: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    state: Mapped[str] = mapped_column(String(16), default="queued")
+    message_ids: Mapped[list | None] = mapped_column(JSON)
+    cursor: Mapped[int] = mapped_column(default=0)
+    imported: Mapped[int] = mapped_column(default=0)
+    skipped: Mapped[int] = mapped_column(default=0)
+    byte_count: Mapped[int] = mapped_column(default=0)
+    truncated: Mapped[bool] = mapped_column(default=False)
+    attempts: Mapped[int] = mapped_column(default=0)
+    available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    lease_token: Mapped[UUID | None]
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    failure_code: Mapped[str | None] = mapped_column(String(32))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class GmailImport(Base):
+    __tablename__ = "gmail_imports"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["session_id", "scan_id"],
+            ["gmail_scans.session_id", "gmail_scans.id"],
+            name="gmail_import_scan_owner",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["session_id", "document_id"],
+            ["documents.session_id", "documents.id"],
+            name="gmail_import_document_owner",
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint("scan_id", "message_id", "attachment_id", name="gmail_import_once"),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID]
+    scan_id: Mapped[UUID]
+    document_id: Mapped[UUID]
+    mailbox: Mapped[str] = mapped_column(String(100))
+    message_id: Mapped[str] = mapped_column(String(200))
+    attachment_id: Mapped[str] = mapped_column(String(512))
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    sha256: Mapped[str] = mapped_column(String(64))
+    review_required: Mapped[bool] = mapped_column(default=True)

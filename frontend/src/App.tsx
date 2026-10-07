@@ -60,7 +60,7 @@ function Workspace() {
     try {
       const report = await api<Report>(`/reports/${id}`);
       if (generation === epoch.current && requestNumber === readSequence.current) {
-        setSelected(report); window.history.replaceState({}, '', `?report=${report.id}`);
+        setSelected(report); const outcome = new URLSearchParams(window.location.search).get('gmail'); window.history.replaceState({}, '', `?report=${report.id}${outcome ? `&gmail=${encodeURIComponent(outcome)}` : ''}`);
       }
     } catch (problem) { if (generation === epoch.current) failure(problem); }
     finally { if (generation === epoch.current && requestNumber === readSequence.current) setOpening(false); }

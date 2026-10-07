@@ -2,13 +2,13 @@
 
 Expense report preparation with an Employee/Manager demo workspace.
 
-**Current implementation: Phase 1B on FastAPI/Python (hosted/live increment gate pending).** An employee can describe a report to Astra, review/correct its name, explicit dates and business purpose, confirm it, and reopen the saved report. PostgreSQL owns sessions, profiles and reports. Manager mode cannot inspect employee drafts. This is a persona demonstration, not production multi-user authentication.
+**Current implementation: Phase 1C on FastAPI/Python (local checks passed; hosted/live Gmail gates pending).** An employee can describe a report to Astra, review/correct its name, explicit dates and business purpose, confirm it, and reopen the saved report. PostgreSQL owns sessions, profiles and reports. Manager mode cannot inspect employee drafts. This is a persona demonstration, not production multi-user authentication.
 
 Astra report intake is **deterministic**, with no model/API call: it recognizes supported explicit date formats and asks for review when fields are missing or ambiguous. Confirmation and database writes belong to application code. No manager details are requested.
 
-Chat/workspace JPEG, PNG and PDF uploads share retained session-private evidence and leased PostgreSQL validation jobs. **Not implemented:** Gmail, extraction, policy assessment, FX, submission, approval, Teams, RAG or Railway deployment. The separately labelled synthetic Meal preview remains at `/?preview=1`; its values are expected outcomes, not extracted/saved expenses.
+Chat/workspace JPEG, PNG and PDF uploads share retained session-private evidence and leased PostgreSQL validation jobs. Consent-bound Gmail OAuth/scans and early Railway image packaging are locally tested; real Gmail and deployment remain unverified. **Not implemented:** extraction, policy assessment, FX, submission, approval, Teams or RAG. The separately labelled synthetic Meal preview remains at `/?preview=1`; its values are expected outcomes, not extracted/saved expenses.
 
-Local PostgreSQL integration and real API/browser checks pass. Phase 1A hosted CI and [live Supabase smoke](docs/validation/SUPABASE_PHASE_1A_SMOKE.md) passed before PR #1 merged. Phase 1B has its own pending hosted/live evidence gate; this does not claim full Phase 1 completion. See [Phase 1A validation](docs/validation/PHASE_1A_VALIDATION.md).
+Local PostgreSQL integration and real API/browser checks pass. Phase 1A hosted CI and [live Supabase smoke](docs/validation/SUPABASE_PHASE_1A_SMOKE.md) passed before PR #1 merged. Phase 1B passed hosted CI and its isolated live evidence gate, merged in PR #2; Phase 1C still needs real Gmail/deployment proof; this does not claim full Phase 1 completion. See [Phase 1A validation](docs/validation/PHASE_1A_VALIDATION.md).
 
 Full-version repository: [abanerjee23/UnLoop](https://github.com/abanerjee23/UnLoop). The separate hackathon repository `abanerjee23/Un-Loop` is outside this work.
 
@@ -116,4 +116,4 @@ The worker commits a 30s lease before processing, retries transient validation f
 
 ## Next gate
 
-Parent review, hosted CI and opt-in [Phase 1B live Supabase evidence smoke](docs/validation/PHASE_1B_VALIDATION.md) before merging this increment. The opt-in is currently disabled and skipped is not provider proof. Phase 1C Gmail follows only after 1B's gates; deployment and full Phase 1 completion remain separate. [Current delivery ledger](docs/product/BUILD_STATUS.md) records standing authorization and evidence without rewriting the historical audit or BUILD_PLAN.
+Phase 1B [live Supabase evidence](docs/validation/PHASE_1B_VALIDATION.md) passed before PR #2 merged. Parent review/hosted CI and actual consent/attachment/deployment gates remain for [Phase 1C](docs/validation/PHASE_1C_VALIDATION.md). The opt-in smoke is disabled after verified success; skipped is not new proof. Exact private runtime fields and dashboard commands are in the [deployment handoff](docs/integrations/PHASE_1C_DEPLOYMENT.md). [Current delivery ledger](docs/product/BUILD_STATUS.md) records standing authorization and evidence without rewriting the historical audit or BUILD_PLAN.

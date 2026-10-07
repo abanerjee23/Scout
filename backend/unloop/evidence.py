@@ -6,10 +6,11 @@ import re
 import subprocess
 import sys
 from datetime import UTC, datetime
+from threading import BoundedSemaphore
 from uuid import UUID
 
-from fastapi import APIRouter, Request, Response
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Request, Response
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
@@ -30,6 +31,22 @@ from unloop.evidence_validation import MAX_BYTES, MAX_FILES, InvalidDocument
 from unloop.models import Document, DocumentBytes, EvidenceJob, EvidenceLink, Report
 
 router = APIRouter(prefix="/api")
+MAX_OWNER_DOCUMENTS = 100
+MAX_OWNER_BYTES = 100 * 1024**2
+MAX_TOTAL_DOCUMENTS = 1000
+MAX_TOTAL_BYTES = 1024**3
+UPLOAD_SLOTS = BoundedSemaphore(4)
+
+
+def upload_capacity():
+    if not UPLOAD_SLOTS.acquire(blocking=False):
+        raise ApiProblem(
+            503, "upload_busy", "Four uploads are already in progress. Try again shortly."
+        )
+    try:
+        yield
+    finally:
+        UPLOAD_SLOTS.release()
 
 
 class UploadBodyLimit:
@@ -188,7 +205,11 @@ def list_evidence(report_id: UUID, db: Db, owner: Owner):
     }
 
 
-@router.post("/reports/{report_id}/evidence", status_code=201)
+@router.post(
+    "/reports/{report_id}/evidence",
+    status_code=201,
+    dependencies=[Depends(upload_capacity, scope="function")],
+)
 async def upload_evidence(report_id: UUID, request: Request):
     if request.app.state.engine is None:
         raise ApiProblem(503, "database_unavailable", "Report storage is not configured.")
@@ -232,51 +253,7 @@ async def upload_evidence(report_id: UUID, request: Request):
             owner = current_session(request, db)
             mutation_session(request, owner)
             own_report(db, owner, report_id)
-            now, result = datetime.now(UTC), []
-            for content, info, filename in checked:
-                document = db.scalar(
-                    select(Document).where(
-                        Document.session_id == owner.id, Document.sha256 == info["sha256"]
-                    )
-                )
-                duplicate = document is not None
-                if document is None:
-                    document = Document(
-                        session_id=owner.id,
-                        filename=filename,
-                        byte_size=len(content),
-                        created_at=now,
-                        state="queued",
-                        revision=1,
-                        **info,
-                    )
-                    db.add(document)
-                    db.flush()
-                    db.add(DocumentBytes(document_id=document.id, content=content))
-                    queue_job(db, document, now)
-                link = db.scalar(
-                    select(EvidenceLink).where(
-                        EvidenceLink.report_id == report_id,
-                        EvidenceLink.document_id == document.id,
-                        EvidenceLink.source == source,
-                    )
-                )
-                if link is None:
-                    db.add(
-                        EvidenceLink(
-                            session_id=owner.id,
-                            report_id=report_id,
-                            document_id=document.id,
-                            source=source,
-                            filename=filename,
-                            created_at=now,
-                        )
-                    )
-                db.flush()
-                result.append(
-                    {"id": str(document.id), "duplicate": duplicate, "state": document.state}
-                )
-            return {"documents": result}
+            return {"documents": persist_checked(db, owner, report_id, source, checked)}
     finally:
         await form.close()
 
@@ -305,3 +282,76 @@ def retry(document_id: UUID, db: Db, owner: MutationOwner):
     queue_job(db, document, datetime.now(UTC))
     db.flush()
     return {"id": str(document.id), "state": document.state, "revision": document.revision}
+
+
+def persist_checked(db, owner, report_id, source, checked):
+    """Caller holds fresh session authority lock; no network or parsing here."""
+    db.execute(text("SELECT pg_advisory_xact_lock(781032)"))
+    count, size = db.execute(
+        select(func.count(), func.coalesce(func.sum(Document.byte_size), 0))
+    ).one()
+    own_count, own_size = db.execute(
+        select(func.count(), func.coalesce(func.sum(Document.byte_size), 0)).where(
+            Document.session_id == owner.id
+        )
+    ).one()
+    hashes = set(db.scalars(select(Document.sha256).where(Document.session_id == owner.id)))
+    new = {
+        info["sha256"]: len(content)
+        for content, info, _name in checked
+        if info["sha256"] not in hashes
+    }
+    if (
+        count + len(new) > MAX_TOTAL_DOCUMENTS
+        or size + sum(new.values()) > MAX_TOTAL_BYTES
+        or own_count + len(new) > MAX_OWNER_DOCUMENTS
+        or own_size + sum(new.values()) > MAX_OWNER_BYTES
+    ):
+        raise ApiProblem(
+            409,
+            "storage_limit",
+            "Demo evidence storage limit reached. Retained evidence needs explicit owner cleanup.",
+        )
+    now, result = datetime.now(UTC), []
+    for content, info, filename in checked:
+        document = db.scalar(
+            select(Document).where(
+                Document.session_id == owner.id, Document.sha256 == info["sha256"]
+            )
+        )
+        duplicate = document is not None
+        if document is None:
+            document = Document(
+                session_id=owner.id,
+                filename=filename,
+                byte_size=len(content),
+                created_at=now,
+                state="queued",
+                revision=1,
+                **info,
+            )
+            db.add(document)
+            db.flush()
+            db.add(DocumentBytes(document_id=document.id, content=content))
+            queue_job(db, document, now)
+        link = db.scalar(
+            select(EvidenceLink).where(
+                EvidenceLink.report_id == report_id,
+                EvidenceLink.document_id == document.id,
+                EvidenceLink.source == source,
+            )
+        )
+        if link is None:
+            db.add(
+                EvidenceLink(
+                    session_id=owner.id,
+                    report_id=report_id,
+                    document_id=document.id,
+                    source=source,
+                    filename=filename,
+                    created_at=now,
+                )
+            )
+        db.flush()
+        result.append({"id": str(document.id), "duplicate": duplicate, "state": document.state})
+    return result

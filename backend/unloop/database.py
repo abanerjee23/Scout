@@ -17,6 +17,7 @@ class Settings:
     session_ttl_seconds: int
     cookie_name: str = "unloop_demo"
     database_schema: str | None = None
+    production: bool = False
 
     @classmethod
     def load(cls, overrides: dict | None = None):
@@ -33,12 +34,19 @@ class Settings:
         ttl = int(values.get("SESSION_TTL_SECONDS", 8 * 60 * 60))
         if not 60 <= ttl <= 24 * 60 * 60:
             raise ValueError("SESSION_TTL_SECONDS must be between 60 and 86400")
+        production = values.get("UNLOOP_ENV") == "production"
+        schema = values.get("DATABASE_SCHEMA") if production else values.get("UNLOOP_TEST_SCHEMA")
+        if production and (schema != "unloop_app" or parts.scheme != "https" or secure != "true"):
+            raise ValueError(
+                "Production requires HTTPS, secure cookies and DATABASE_SCHEMA=unloop_app"
+            )
         return cls(
             values.get("DATABASE_URL") or None,
             origin,
             secure == "true",
             ttl,
-            database_schema=validated_schema(values.get("UNLOOP_TEST_SCHEMA") or None),
+            database_schema=validated_schema(schema or None, production=production),
+            production=production,
         )
 
 
@@ -46,25 +54,48 @@ class SchemaSelectionError(RuntimeError):
     schema_code = "isolated_schema_selection_failed"
 
 
-def validated_schema(schema):
+def validated_schema(schema, *, production=False):
+    if production and schema == "unloop_app":
+        return schema
     if schema is not None and not re.fullmatch(r"unloop_test_[0-9a-f]{32}", schema):
         raise ValueError("Invalid isolated test schema")
     return schema
 
 
-def postgres_engine(database_url: str, *, schema=None):
-    schema = validated_schema(schema)
+def postgres_engine(database_url: str, *, schema=None, production=False):
+    schema = validated_schema(schema, production=production)
     url = make_url(database_url)
     if url.get_backend_name() != "postgresql":
         raise ValueError("Unloop persistence requires PostgreSQL")
+    args = {"connect_timeout": 5}
+    if production:
+        # Never permit URI overrides to turn off transport protection or schema controls.
+        if set(url.query) - {"sslmode"} or url.query.get("sslmode", "require") not in {
+            "require",
+            "verify-ca",
+            "verify-full",
+        }:
+            raise ValueError("Production PostgreSQL requires TLS without query overrides")
+        args.update(sslmode=url.query.get("sslmode", "require"), gssencmode="disable")
     engine = create_engine(
         url.set(drivername="postgresql+psycopg"),
         pool_pre_ping=True,
         pool_size=5,
         max_overflow=5,
-        connect_args={"connect_timeout": 5},
+        connect_args=args,
         hide_parameters=True,
     )
+
+    if production:
+
+        @event.listens_for(engine, "connect")
+        def enforce_tls(dbapi_connection, _record):
+            modes = dbapi_connection.info.get_parameters()
+            if (
+                modes.get("sslmode") not in {"require", "verify-ca", "verify-full"}
+                or modes.get("gssencmode") != "disable"
+            ):
+                raise RuntimeError("Client TLS enforcement failed")
 
     if schema is not None:
 

@@ -1,7 +1,7 @@
 # Gmail evidence integration
 
 Updated: 7 October 2026  
-Status: agreed design; GCP setup is user-confirmed, full-version implementation/connectivity unverified.
+Status: Phase 1C implemented and locally tested; actual full-version Gmail consent/bytes and hosted deployment remain unverified. See [validation](../validation/PHASE_1C_VALIDATION.md) and [deployment handoff](PHASE_1C_DEPLOYMENT.md).
 
 [Vision](../../Unloop_Vision.md), [architecture](../../Architecture.md) and [build plan](../../BUILD_PLAN.md) govern the product. This document specifies optional Gmail intake alongside independent JPEG/PNG/PDF uploads.
 

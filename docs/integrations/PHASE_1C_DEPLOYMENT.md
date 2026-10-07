@@ -1,0 +1,38 @@
+# Phase 1C deployment handoff
+
+Prepared 7 October 2026. Dockerfile plus **explicit Railway dashboard settings**; no legacy `railway.toml/json` dependency (new services cannot enable legacy config after 28 August 2026). [Railway current config documentation](https://docs.railway.com/config-as-code). Early deployment is permitted by BUILD_PLAN; Phase 6 completion remains separate.
+
+Private project provisioned by parent: **Unloop Full Demo**, project `8b7d41e0-3de3-439b-9524-0eb3c49ebb3f`, production environment `d8f31e7e-9f9d-4c01-bc1c-4ac95f00c317`; staged offline web `6ca66063-c1bd-4b5c-ba48-b9354325a52c` and worker `ad284435-51f5-48b1-9de7-3452b925b9ba`. Shared schema/public client ID/key-version references are prepared; no source, deployment, public domain, DB URI, client secret or keyring is configured. These identifiers are setup only, not running-service evidence. Old hackathon projects/repository/credentials remain untouched.
+
+## Exact runtime fields (web and worker)
+
+| Field | Value/source |
+|---|---|
+| `UNLOOP_ENV` | `production` |
+| `DATABASE_SCHEMA` | `unloop_app` (only permitted production schema) |
+| `DATABASE_URL` | Owner privately enters working Supabase **Session pooler** PostgreSQL URI; do not copy from Cloud or print it. SSL absence becomes require; explicit insecure modes/override parameters rejected. GSS disabled and successful connection modes checked. |
+| `APP_ORIGIN` | Exact new web `https://…` origin, no path, never derived from Host headers |
+| `SESSION_COOKIE_SECURE` | `true` |
+| `SESSION_TTL_SECONDS` | Optional; default 28800, valid 60–86400 |
+| `GOOGLE_CLIENT_ID` | `560396187964-vgbelj09uthccnapv35vnbn0kfu26qqj.apps.googleusercontent.com` |
+| `GOOGLE_CLIENT_SECRET` | Owner privately enters saved existing web-client secret |
+| `GMAIL_TOKEN_KEY_VERSION` | e.g. `v1`, 1–32 letters/digits/underscore/hyphen |
+| `GMAIL_TOKEN_KEYS` | Private JSON object mapping version to a 32-byte Fernet key encoded URL-safe base64; generate privately with `Fernet.generate_key()`; one to three versions. Never commit/print real keys. |
+
+Missing any Gmail field leaves Gmail disabled; invalid full key configuration fails startup. Do not use dummy secrets to imply readiness. Public client ID alone does not enable integration. Secrets are runtime-only; no build arguments. `PORT` is supplied by Railway; web binds `0.0.0.0`. Docker embeds only `UNLOOP_STATIC_DIR=/app/frontend/dist`, builds locked React/uv dependencies, runs non-root, excludes `.env`, fixtures/archive/traces/test output and does not include credentials.
+
+## Dashboard service settings
+
+Connect **abanerjee23/UnLoop**, reviewed `codex/phase-1c` branch, root Dockerfile. Web start: `/app/.venv/bin/python -m unloop.deploy web`; **web only** pre-deploy: `/app/.venv/bin/python -m unloop.deploy migrate`; health path `/api/readiness`. Create a separate worker from the same image/source with start override `/app/.venv/bin/python -m unloop.worker`, no pre-deploy migration and no public domain. Keep one worker and a bounded web instance for this demo. Start after migration succeeds. Do not run two migrations simultaneously.
+
+The explicit migration command enforces TLS, creates only the constant `unloop_app` schema if absent, then uses explicit per-connection `set_config`/verified `current_schema()` before Alembic. No `public` fallback or global ALTER DATABASE/ROLE. Application/worker never auto-create tables. Schema reuse is intentional for the new full-version app only; confirm it is not occupied by an unrelated service. Readiness checks migration `0004_phase1c_gmail`; `/api/health` is process health. `/app/.venv/bin/python -m unloop.worker --diagnostics` checks DB queue counts, explicitly not worker liveness. Lease/progress timestamps and actual retained status are stronger execution evidence.
+
+Use the **existing UnLoop Backend** GCP client in `unloop-510813`; keep `http://localhost:8000/auth/google/callback` and add only exact new `${APP_ORIGIN}/auth/google/callback` after URL is known. Testing audience/dedicated mailbox is `aban.hackathon@gmail.com`; request only Gmail readonly. Do not alter hackathon callback/service/credentials. Google callback codes must not be captured in platform access logging/traces; Uvicorn access logs are disabled, exceptions/provider payloads sanitized. Ensure any platform request log capture also excludes query strings.
+
+## Rotation, retention and live acceptance
+
+Add a new key version privately to both services' keyring, set current version and restart. Existing known-key credentials rotate on authorized use after a revision check; keep the old key until remaining connections rotate/expire or deliberately reconnect. Removing an old key makes affected scans stop and request reconnect; never restore plaintext or a disconnected token. Worker sweeps expired-session credentials and cancels access. Disconnect retains evidence and reports provider revocation separately. Manual deletion is owner-only database cleanup of selected session/document rows under the documented retained-evidence policy; foreign keys cascade associated links/jobs. No silent global purge.
+
+Enforced demo caps: 1,000 total sessions, 50 reports/scans per session, 100 originals/100 MiB per owner, 1,000 originals/1 GiB overall, four concurrent uploads per web process. Each explicitly authorized scan: 20 minutes, 15 candidate messages, ten imports/40 MiB; 10 MiB/ten pages per file. Worker: three bounded retries/checkpoint, 330s operation scheduling bound/360s lease; native validation 15s. Capacity remains consumed by expired originals until owner cleanup. No paid model calls or policy activation.
+
+Before merge/Phase 1C completion record exact deployed SHA, URL, migration/schema/client TLS, real owner consent and supported synthetic attachment retrieved from the dedicated mailbox, byte hash after download/restart, worker terminal result, denied/empty/partial/retry/revoked/refresh behavior and another-session/manager exclusion. Mock network tests, an empty Railway project and saved variables are not proof. Parent owns private setup and actual live evidence; Cloud has no live Google/Supabase secrets and does not enable public service.

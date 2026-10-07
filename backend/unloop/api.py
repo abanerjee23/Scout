@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Request, Response
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from unloop.intake import ConfirmationInput, EmptyInput, PersonaInput, ProposalInput, parse_report
@@ -125,7 +125,7 @@ def health():
 @router.get("/readiness")
 def readiness(db: Db):
     version = db.scalar(text("SELECT version_num FROM alembic_version"))
-    if version != "0003_phase1b_evidence":
+    if version != "0004_phase1c_gmail":
         raise ApiProblem(503, "migration_required", "Apply the database migrations.")
     db.execute(select(DemoSession.id).limit(1))
     return {"service": "unloop", "database": "ready", "schemaVersion": version}
@@ -142,6 +142,11 @@ def start_session(_body: EmptyInput, request: Request, response: Response, db: D
         owner = current_session(request, db)
         response.status_code = 200
         return session_view(db, owner)
+    db.execute(text("SELECT pg_advisory_xact_lock(781033)"))
+    if db.scalar(select(func.count()).select_from(DemoSession)) >= 1000:
+        raise ApiProblem(
+            503, "demo_capacity", "Demo session capacity reached; owner cleanup is required."
+        )
     settings = request.app.state.settings
     raw_token, now = secrets.token_urlsafe(32), datetime.now(UTC)
     owner = DemoSession(
@@ -240,6 +245,11 @@ def confirm_report(body: ConfirmationInput, response: Response, db: Db, owner: M
             DemoProfile.session_id == owner.id, DemoProfile.persona == "employee"
         )
     )
+    if (
+        db.scalar(select(func.count()).select_from(Report).where(Report.session_id == owner.id))
+        >= 50
+    ):
+        raise ApiProblem(409, "report_limit", "This demo session supports up to 50 reports.")
     report = Report(
         session_id=owner.id,
         employee_profile_id=profile.id,

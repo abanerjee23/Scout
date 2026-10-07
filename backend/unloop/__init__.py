@@ -1,10 +1,13 @@
 """FastAPI factory; no provider integration or automatic schema creation."""
 
+import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException
 
@@ -13,12 +16,16 @@ from unloop.database import Settings, postgres_engine
 from unloop.evidence import UploadBodyLimit
 from unloop.evidence import router as evidence_router
 from unloop.evidence_validation import MAX_REQUEST_BYTES
+from unloop.gmail import router as gmail_router
+from unloop.gmail_provider import GmailFailure, GmailSettings, GoogleAdapter
 
 
 def create_app(test_config: dict | None = None) -> FastAPI:
     settings = Settings.load(test_config)
     engine = (
-        postgres_engine(settings.database_url, schema=settings.database_schema)
+        postgres_engine(
+            settings.database_url, schema=settings.database_schema, production=settings.production
+        )
         if settings.database_url
         else None
     )
@@ -31,6 +38,12 @@ def create_app(test_config: dict | None = None) -> FastAPI:
 
     app = FastAPI(title="Unloop", lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.settings, app.state.engine = settings, engine
+    app.state.gmail_settings = GmailSettings.load(
+        {**os.environ, **(test_config or {})}, settings.app_origin
+    )
+    app.state.gmail_adapter = (
+        GoogleAdapter(app.state.gmail_settings) if app.state.gmail_settings else None
+    )
 
     @app.exception_handler(ApiProblem)
     async def problem_handler(_request: Request, exc: ApiProblem):
@@ -56,6 +69,18 @@ def create_app(test_config: dict | None = None) -> FastAPI:
                 "fields": fields,
             },
             status_code=422,
+        )
+
+    @app.exception_handler(GmailFailure)
+    async def gmail_problem(_request: Request, exc: GmailFailure):
+        return JSONResponse(
+            {
+                "error": {
+                    "code": exc.code,
+                    "message": "Gmail stopped. Review consent or reconnect. Evidence is retained.",
+                }
+            },
+            status_code=409,
         )
 
     @app.exception_handler(SQLAlchemyError)
@@ -131,9 +156,23 @@ def create_app(test_config: dict | None = None) -> FastAPI:
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["Referrer-Policy"] = "same-origin"
+        response.headers["Referrer-Policy"] = (
+            "no-referrer"
+            if request.url.path == "/auth/google/callback"
+            else response.headers.get("Referrer-Policy", "same-origin")
+        )
         return response
 
     app.include_router(router)
     app.include_router(evidence_router)
+    app.include_router(gmail_router)
+    static = os.environ.get("UNLOOP_STATIC_DIR")
+    if static:
+        root = Path(static).resolve()
+        app.mount("/assets", StaticFiles(directory=root / "assets"), name="assets")
+
+        @app.get("/")
+        def index():
+            return FileResponse(root / "index.html")
+
     return app

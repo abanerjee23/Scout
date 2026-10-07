@@ -4,7 +4,7 @@
 
 Updated: 7 October 2026  
 Owner: Abhinav  
-Status: Phase 1A verified locally and on live Supabase, merged in PR #1. Phase 1B shared uploads/evidence/leased validation jobs implemented; its hosted/live gates pending. Gmail and Phases 2–6 remain design. See [current ledger](docs/product/BUILD_STATUS.md).
+Status: Phase 1A verified locally and on live Supabase, merged in PR #1. Phase 1B shared evidence/jobs passed hosted/live gates and merged in PR #2. Phase 1C Gmail/early deployment packaging passed local checks; actual Gmail/Railway gates pending. Phases 2–6 remain design. See [current ledger](docs/product/BUILD_STATUS.md).
 
 [Vision](Unloop_Vision.md) governs product behaviour; [build plan](BUILD_PLAN.md) governs sequencing. This revision replaces Supabase employee/manager login, manual-only intake and required employee-led post-submission splitting. Previous designs and rendered diagrams are in [archive](archive/README.md). The map below reflects current responsibilities, not completed integrations.
 
@@ -46,10 +46,10 @@ Code validates every model result and owns writes, arithmetic, eligibility and a
 | Backend | Python/FastAPI; sessions/personas, confirmed reports, evidence uploads/private originals and health/readiness; later workflows unimplemented |
 | Agent orchestration | OpenAI Agents SDK, code-controlled specialist execution; not yet integrated |
 | Models | Luna named baseline, exact available API identifier to be pinned; Sol only after measured comparison, no automatic upgrade |
-| Database/files | Supabase PostgreSQL; original receipt bytes separated from report-list rows; Phase 1A Supabase persistence verified; Phase 1B isolated live evidence gate pending |
+| Database/files | Supabase PostgreSQL; original receipt bytes separated from report-list rows; Phase 1A Supabase persistence verified; Phase 1B isolated live evidence verified at `599a391` |
 | Retrieval | pgvector, approved clause-linked snapshots; small embedding baseline pinned with index configuration |
 | Sessions/personas | Implemented server-owned isolated demo sessions and Employee/Manager toggle; no app login/logout |
-| Gmail | Existing user-confirmed GCP setup for aban.hackathon@gmail.com; adapter/callback/scan still to be integrated and verified here |
+| Gmail | Existing user-confirmed GCP setup for aban.hackathon@gmail.com; adapter/callback/scan locally tested; real consent/bytes and hosted deployment remain unverified |
 | Jobs | Leased PostgreSQL evidence-validation jobs and Python worker; 3 attempts/30s leases/15s validation deadline, no extraction yet |
 | FX | Saved observation → Frankfurter pinned to ECB → Open Exchange Rates fallback under accepted date/basis rules |
 | Diagnostics/evals | Existing project-specific Galileo choice retained; deterministic tests use pytest |

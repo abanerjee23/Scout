@@ -1,18 +1,21 @@
 """Leased PostgreSQL evidence-validation worker. No AI or external calls."""
 
 import argparse
+import os
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from unloop.database import Settings, postgres_engine
 from unloop.evidence import bounded_validation
 from unloop.evidence_validation import InvalidDocument
-from unloop.models import DemoSession, Document, DocumentBytes, EvidenceJob
+from unloop.gmail import cleanup_expired, run_scan_once
+from unloop.gmail_provider import GmailSettings, GoogleAdapter
+from unloop.models import DemoSession, Document, DocumentBytes, EvidenceJob, GmailScan
 
 LEASE_SECONDS = 30
 MAX_ATTEMPTS = 3
@@ -129,6 +132,11 @@ def run_once(engine):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true")
+    parser.add_argument(
+        "--diagnostics",
+        action="store_true",
+        help="Read bounded queue counts; not proof a worker is running",
+    )
     parser.add_argument("--once", action="store_true", help="Process at most one due job")
     args = parser.parse_args()
     if args.check:
@@ -140,14 +148,48 @@ def main():
     settings = Settings.load()
     if not settings.database_url:
         parser.exit(2, "DATABASE_URL is required for evidence jobs.\n")
-    engine = postgres_engine(settings.database_url, schema=settings.database_schema)
+    engine = postgres_engine(
+        settings.database_url, schema=settings.database_schema, production=settings.production
+    )
+    gmail_settings = GmailSettings.load(os.environ, settings.app_origin)
+    adapter = GoogleAdapter(gmail_settings) if gmail_settings else None
+
+    def step():
+        cleanup_expired(engine)
+        scan_work = run_scan_once(engine, gmail_settings, adapter) if gmail_settings else False
+        return run_once(engine) or scan_work
+
     try:
-        if args.once:
-            run_once(engine)
+        if args.diagnostics:
+            with Session(engine) as db:
+                evidence = dict(
+                    db.execute(
+                        select(EvidenceJob.state, func.count()).group_by(EvidenceJob.state)
+                    ).all()
+                )
+                scans = dict(
+                    db.execute(
+                        select(GmailScan.state, func.count()).group_by(GmailScan.state)
+                    ).all()
+                )
+            print(
+                {
+                    "database": "checked",
+                    "evidence_counts": evidence,
+                    "gmail_scan_counts": scans,
+                    "worker_liveness": "not_measured",
+                }
+            )
+        elif args.once:
+            step()
         else:
             while True:
-                if not run_once(engine):
+                if not step():
                     time.sleep(1)
+    except Exception:
+        parser.exit(
+            1, "Worker stopped; verify private storage/configuration. No provider details logged.\n"
+        )
     finally:
         engine.dispose()
 
