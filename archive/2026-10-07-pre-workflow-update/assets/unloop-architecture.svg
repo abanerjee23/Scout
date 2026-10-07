@@ -1,0 +1,145 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1560" height="1480" viewBox="0 0 1560 1480" role="img" aria-labelledby="title desc">
+<title id="title">Unloop — specialised intelligence, controlled workflow</title>
+<desc id="desc">Agreed high-level architecture baseline v1.0, not an implemented system. React serves employees and managers. Flask and a Python worker control four specialist agents: receipt extraction, policy assessment, policy answers and clarification drafting. Application code owns permissions, calculations, workflow changes and persistence in Supabase PostgreSQL with pgvector. Supabase Auth supplies identity. OpenAI supplies models. Frankfurter with ECB data is the primary FX service, with Open Exchange Rates as fallback. Galileo records minimised diagnostics. Teams is opened only by the user and no chat content returns.</desc>
+<defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 Z" fill="#0F766E"/></marker>
+  <marker id="slateArrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 Z" fill="#475569"/></marker>
+  <marker id="roseArrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 Z" fill="#BE185D"/></marker>
+  <style>
+    text { font-family: Arial, Helvetica, sans-serif; fill:#172B3A; }
+    .title { font-size:46px; font-weight:700; letter-spacing:-1px; }
+    .sub { font-size:23px; fill:#475569; }
+    .eyebrow { font-size:17px; font-weight:700; letter-spacing:2px; }
+    .heading { font-size:26px; font-weight:700; }
+    .body { font-size:21px; }
+    .small { font-size:18px; fill:#475569; }
+    .label { font-size:20px; font-weight:700; }
+    .wire { fill:none; stroke:#0F766E; stroke-width:2.5; marker-end:url(#arrow); }
+    .external { fill:none; stroke:#475569; stroke-width:2.5; marker-end:url(#slateArrow); }
+    .dash { stroke-dasharray:8 6; }
+  </style>
+</defs>
+<rect width="1560" height="1480" fill="#F8FAFC"/>
+<rect x="0" y="0" width="14" height="1480" fill="#0F766E"/>
+<text x="56" y="48" class="eyebrow" style="fill:#0F766E">UNLOOP / AGREED ARCHITECTURE · V1.0</text>
+<text x="56" y="102" class="title">Specialised intelligence. Controlled workflow.</text>
+<text x="56" y="141" class="sub">One application · four bounded agents · one database · two human decision-makers</text>
+
+<!-- Human experience -->
+<rect x="56" y="180" width="1032" height="128" rx="16" fill="#EFF6FF" stroke="#BFDBFE"/>
+<rect x="56" y="180" width="8" height="128" rx="4" fill="#2563EB"/>
+<text x="82" y="216" class="eyebrow" style="fill:#2563EB">HUMAN EXPERIENCE</text>
+<text x="82" y="252" class="heading">Employee + manager → React</text>
+<text x="82" y="286" class="body">Upload · review · policy Q&amp;A · inbox · split preview · explicit approval</text>
+<path d="M1088 244 H1138" class="external dash"/>
+<rect x="1140" y="180" width="364" height="128" rx="16" fill="#F1F5F9" stroke="#CBD5E1"/>
+<text x="1164" y="218" class="heading">Teams</text>
+<text x="1164" y="251" class="body">User reviews and sends</text>
+<text x="1164" y="282" class="small">Launch only. No chat read-back.</text>
+
+<!-- Application boundary -->
+<path d="M572 308 V366" class="wire"/>
+<text x="592" y="343" class="small">Authenticated requests + job status</text>
+<rect x="56" y="368" width="1032" height="112" rx="16" fill="#F0FDFA" stroke="#99F6E4"/>
+<rect x="56" y="368" width="8" height="112" rx="4" fill="#0F766E"/>
+<text x="82" y="409" class="heading">Flask API · permission boundary</text>
+<text x="82" y="447" class="body">Internal UI API + read-only approved-data API · no ERP receiver</text>
+<path d="M1088 422 H1138" class="external"/>
+<rect x="1140" y="368" width="364" height="112" rx="16" fill="#F1F5F9" stroke="#CBD5E1"/>
+<text x="1164" y="409" class="heading">Supabase Auth</text>
+<text x="1164" y="447" class="body">Identity, not approval authority</text>
+
+<path d="M572 480 V510" class="wire"/>
+<rect x="56" y="512" width="1032" height="130" rx="16" fill="#F0FDFA" stroke="#99F6E4"/>
+<rect x="56" y="512" width="8" height="130" rx="4" fill="#0F766E"/>
+<text x="82" y="549" class="heading">Python workflow service + background worker</text>
+<text x="82" y="584" class="body">Route jobs · validate evidence · calculate FX/totals · enforce state changes</text>
+<text x="82" y="618" class="small">Same codebase. Bounded retries, version checks and transactional splits.</text>
+<path d="M1088 578 H1138" class="external"/>
+<rect x="1140" y="512" width="364" height="130" rx="16" fill="#F1F5F9" stroke="#CBD5E1"/>
+<text x="1164" y="552" class="heading">Historical FX</text>
+<text x="1164" y="587" class="body">Frankfurter · ECB source</text>
+<text x="1164" y="618" class="small">Fallback: Open Exchange Rates</text>
+
+<!-- AI responsibility lane -->
+<path d="M572 642 V687" class="wire"/>
+<text x="592" y="673" class="small">Select only the specialist required</text>
+<rect x="56" y="690" width="1032" height="236" rx="16" fill="#F5F3FF" stroke="#DDD6FE"/>
+<text x="82" y="727" class="eyebrow" style="fill:#7C3AED">OPENAI AGENTS SDK · ONE JOB PER AGENT</text>
+
+<rect x="76" y="750" width="241" height="150" rx="12" fill="#FFFFFF" stroke="#DDD6FE"/>
+<text x="94" y="780" class="eyebrow" style="fill:#7C3AED">A1</text>
+<text x="94" y="813" class="label">Receipt Extraction</text>
+<text x="94" y="849" class="body">Evidence → facts</text>
+<text x="94" y="878" class="small">No invented fields</text>
+
+<rect x="327" y="750" width="241" height="150" rx="12" fill="#FFFFFF" stroke="#DDD6FE"/>
+<text x="345" y="780" class="eyebrow" style="fill:#7C3AED">A2</text>
+<text x="345" y="813" class="label">Policy Assessment</text>
+<text x="345" y="849" class="body">Facts → findings</text>
+<text x="345" y="878" class="small">Not approval</text>
+
+<rect x="578" y="750" width="241" height="150" rx="12" fill="#FFFFFF" stroke="#DDD6FE"/>
+<text x="596" y="780" class="eyebrow" style="fill:#7C3AED">A3</text>
+<text x="596" y="813" class="label">Policy Answer</text>
+<text x="596" y="849" class="body">Question → guidance</text>
+<text x="596" y="878" class="small">Cited, or abstain</text>
+
+<rect x="829" y="750" width="239" height="150" rx="12" fill="#FFFFFF" stroke="#DDD6FE"/>
+<text x="847" y="780" class="eyebrow" style="fill:#7C3AED">A4</text>
+<text x="847" y="813" class="label">Clarification Drafting</text>
+<text x="847" y="849" class="body">Issue → context</text>
+<text x="847" y="878" class="small">Never auto-send</text>
+
+<path d="M1088 810 H1138" class="external"/>
+<rect x="1140" y="744" width="364" height="164" rx="16" fill="#F1F5F9" stroke="#CBD5E1"/>
+<text x="1164" y="783" class="heading">OpenAI API</text>
+<text x="1164" y="818" class="body">Luna for all four specialists</text>
+<text x="1164" y="851" class="small">Sol only after measured gains</text>
+<text x="1164" y="881" class="small">Embeddings: text-embedding-3-small</text>
+<text x="82" y="958" class="small">No peer handoffs · no direct database writes · no model-controlled approvals</text>
+
+<!-- Data path bypasses agents: application owns reads and writes -->
+<path d="M56 422 H32 V1116 H54" class="wire"/>
+<path d="M56 578 H32" fill="none" stroke="#0F766E" stroke-width="2.5"/>
+<text x="82" y="995" class="label" style="fill:#0F766E">Application-owned storage + scoped policy retrieval for A2 / A3</text>
+<rect x="56" y="1018" width="1032" height="198" rx="16" fill="#FFFBEB" stroke="#FDE68A"/>
+<rect x="56" y="1018" width="8" height="198" rx="4" fill="#B45309"/>
+<text x="82" y="1056" class="eyebrow" style="fill:#B45309">ONE POSTGRESQL DATABASE · SUPABASE HOSTING</text>
+<line x1="403" y1="1082" x2="403" y2="1193" stroke="#FDE68A"/>
+<line x1="744" y1="1082" x2="744" y2="1193" stroke="#FDE68A"/>
+<text x="82" y="1110" class="label">Records + original files</text>
+<text x="82" y="1147" class="body">Reports, expenses, receipts</text>
+<text x="82" y="1181" class="small">Receipt bytes; private access</text>
+<text x="427" y="1110" class="label">Policy + pgvector</text>
+<text x="427" y="1147" class="body">Sources, chunks, embeddings</text>
+<text x="427" y="1181" class="small">Versioned, cited retrieval</text>
+<text x="768" y="1110" class="label">Jobs + business history</text>
+<text x="768" y="1147" class="body">Queue, FX, approvals, splits</text>
+<text x="768" y="1181" class="small">Durable authoritative record</text>
+
+<!-- Diagnostics leave runtime, not financial ledger -->
+<path d="M1088 612 H1115 V1082 H1138" fill="none" stroke="#BE185D" stroke-width="2.5" stroke-dasharray="8 6" marker-end="url(#roseArrow)"/>
+<circle cx="1088" cy="612" r="4" fill="#BE185D"/>
+<rect x="1140" y="1018" width="364" height="198" rx="16" fill="#FFF1F2" stroke="#FECDD3"/>
+<text x="1164" y="1057" class="eyebrow" style="fill:#BE185D">MEASUREMENT</text>
+<text x="1164" y="1094" class="heading">Galileo</text>
+<text x="1164" y="1128" class="body">Traces + quality evaluations</text>
+<text x="1164" y="1160" class="small">Minimised runtime diagnostics</text>
+<text x="1164" y="1189" class="small">Not the financial audit record</text>
+
+<!-- Footer and legend -->
+<line x1="56" y1="1252" x2="1504" y2="1252" stroke="#CBD5E1"/>
+<text x="56" y="1288" class="eyebrow">LEGEND</text>
+<circle cx="67" cy="1321" r="7" fill="#2563EB"/><text x="84" y="1328" class="small">Human experience</text>
+<circle cx="310" cy="1321" r="7" fill="#0F766E"/><text x="327" y="1328" class="small">Application control</text>
+<circle cx="562" cy="1321" r="7" fill="#7C3AED"/><text x="579" y="1328" class="small">Specialist AI</text>
+<circle cx="779" cy="1321" r="7" fill="#B45309"/><text x="796" y="1328" class="small">Durable data</text>
+<circle cx="994" cy="1321" r="7" fill="#475569"/><text x="1011" y="1328" class="small">External service</text>
+<circle cx="1254" cy="1321" r="7" fill="#BE185D"/><text x="1271" y="1328" class="small">Measurement</text>
+<path d="M56 1365 H101" class="wire"/><text x="116" y="1372" class="small">Controlled request / data flow</text>
+<path d="M435 1365 H480" class="external dash"/><text x="495" y="1372" class="small">User launch or diagnostic flow</text>
+<text x="892" y="1372" class="small">Agreed baseline · arrows omit response paths</text>
+<text x="56" y="1425" class="small">Deployment: Railway web + worker, one codebase. No Redis, Qdrant or object-storage service.</text>
+<text x="56" y="1454" class="small">Responsibility map, not execution order. No application implemented. Architecture.md · 27 September 2026</text>
+</svg>

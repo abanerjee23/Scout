@@ -1,0 +1,8 @@
+SYNTHETIC TEST RECEIPT
+Willow 03 Kitchen
+Date: 2026-09-21
+Dinner
+Food: GBP 56.00
+Service charge: GBP 6.00
+TOTAL GBP 62.00
+Thank you.

@@ -1,0 +1,888 @@
+{
+  "datasetVersion": "0.1",
+  "split": "heldout",
+  "cases": [
+    {
+      "id": "hold-01",
+      "scenario": "breakfast-over",
+      "documents": [
+        {
+          "documentId": "hold-01-receipt",
+          "source": "fixtures/meals/heldout/receipts/hold-01.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-hold-01",
+        "category": "meals",
+        "fx": null,
+        "duplicateUpload": false
+      },
+      "expected": {
+        "fields": {
+          "merchant": "Harbour 01 Kitchen",
+          "receiptDate": "2026-09-21",
+          "originalAmount": "19.00",
+          "transactionCurrency": "GBP",
+          "vatAmount": null,
+          "mealType": "breakfast"
+        },
+        "evidence": {
+          "merchant": [
+            {
+              "documentId": "hold-01-receipt",
+              "pageNumber": 1,
+              "lineNumber": 2,
+              "snippet": "Harbour 01 Kitchen"
+            }
+          ],
+          "receiptDate": [
+            {
+              "documentId": "hold-01-receipt",
+              "pageNumber": 1,
+              "lineNumber": 3,
+              "snippet": "Date: 2026-09-21"
+            }
+          ],
+          "originalAmount": [
+            {
+              "documentId": "hold-01-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 19.00"
+            }
+          ],
+          "transactionCurrency": [
+            {
+              "documentId": "hold-01-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 19.00"
+            }
+          ],
+          "mealType": [
+            {
+              "documentId": "hold-01-receipt",
+              "pageNumber": 1,
+              "lineNumber": 4,
+              "snippet": "Breakfast"
+            }
+          ]
+        },
+        "status": "Adjusted to policy limit",
+        "fullReceiptGbp": "19.00",
+        "claimGbp": "15.00",
+        "excessGbp": "4.00",
+        "issue": null
+      }
+    },
+    {
+      "id": "hold-02",
+      "scenario": "lunch-over-with-tip",
+      "documents": [
+        {
+          "documentId": "hold-02-receipt",
+          "source": "fixtures/meals/heldout/receipts/hold-02.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-hold-02",
+        "category": "meals",
+        "fx": null,
+        "duplicateUpload": false
+      },
+      "expected": {
+        "fields": {
+          "merchant": "Harbour 02 Kitchen",
+          "receiptDate": "2026-09-21",
+          "originalAmount": "28.00",
+          "transactionCurrency": "GBP",
+          "vatAmount": null,
+          "mealType": "lunch"
+        },
+        "evidence": {
+          "merchant": [
+            {
+              "documentId": "hold-02-receipt",
+              "pageNumber": 1,
+              "lineNumber": 2,
+              "snippet": "Harbour 02 Kitchen"
+            }
+          ],
+          "receiptDate": [
+            {
+              "documentId": "hold-02-receipt",
+              "pageNumber": 1,
+              "lineNumber": 3,
+              "snippet": "Date: 2026-09-21"
+            }
+          ],
+          "originalAmount": [
+            {
+              "documentId": "hold-02-receipt",
+              "pageNumber": 1,
+              "lineNumber": 7,
+              "snippet": "TOTAL GBP 28.00"
+            }
+          ],
+          "transactionCurrency": [
+            {
+              "documentId": "hold-02-receipt",
+              "pageNumber": 1,
+              "lineNumber": 7,
+              "snippet": "TOTAL GBP 28.00"
+            }
+          ],
+          "mealType": [
+            {
+              "documentId": "hold-02-receipt",
+              "pageNumber": 1,
+              "lineNumber": 4,
+              "snippet": "Lunch"
+            }
+          ]
+        },
+        "status": "Adjusted to policy limit",
+        "fullReceiptGbp": "28.00",
+        "claimGbp": "25.00",
+        "excessGbp": "3.00",
+        "issue": null
+      }
+    },
+    {
+      "id": "hold-03",
+      "scenario": "dinner-within",
+      "documents": [
+        {
+          "documentId": "hold-03-receipt",
+          "source": "fixtures/meals/heldout/receipts/hold-03.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-hold-03",
+        "category": "meals",
+        "fx": null,
+        "duplicateUpload": false
+      },
+      "expected": {
+        "fields": {
+          "merchant": "Harbour 03 Kitchen",
+          "receiptDate": "2026-09-21",
+          "originalAmount": "37.50",
+          "transactionCurrency": "GBP",
+          "vatAmount": null,
+          "mealType": "dinner"
+        },
+        "evidence": {
+          "merchant": [
+            {
+              "documentId": "hold-03-receipt",
+              "pageNumber": 1,
+              "lineNumber": 2,
+              "snippet": "Harbour 03 Kitchen"
+            }
+          ],
+          "receiptDate": [
+            {
+              "documentId": "hold-03-receipt",
+              "pageNumber": 1,
+              "lineNumber": 3,
+              "snippet": "Date: 2026-09-21"
+            }
+          ],
+          "originalAmount": [
+            {
+              "documentId": "hold-03-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 37.50"
+            }
+          ],
+          "transactionCurrency": [
+            {
+              "documentId": "hold-03-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 37.50"
+            }
+          ],
+          "mealType": [
+            {
+              "documentId": "hold-03-receipt",
+              "pageNumber": 1,
+              "lineNumber": 4,
+              "snippet": "Dinner"
+            }
+          ]
+        },
+        "status": "Compliant",
+        "fullReceiptGbp": "37.50",
+        "claimGbp": "37.50",
+        "excessGbp": "0.00",
+        "issue": null
+      }
+    },
+    {
+      "id": "hold-04",
+      "scenario": "foreign-over",
+      "documents": [
+        {
+          "documentId": "hold-04-receipt",
+          "source": "fixtures/meals/heldout/receipts/hold-04.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-hold-04",
+        "category": "meals",
+        "fx": {
+          "rate": "0.75",
+          "rateDate": "2026-09-21",
+          "source": "synthetic-test-rate"
+        },
+        "duplicateUpload": false
+      },
+      "expected": {
+        "fields": {
+          "merchant": "Harbour 04 Kitchen",
+          "receiptDate": "2026-09-21",
+          "originalAmount": "80.00",
+          "transactionCurrency": "USD",
+          "vatAmount": null,
+          "mealType": "dinner"
+        },
+        "evidence": {
+          "merchant": [
+            {
+              "documentId": "hold-04-receipt",
+              "pageNumber": 1,
+              "lineNumber": 2,
+              "snippet": "Harbour 04 Kitchen"
+            }
+          ],
+          "receiptDate": [
+            {
+              "documentId": "hold-04-receipt",
+              "pageNumber": 1,
+              "lineNumber": 3,
+              "snippet": "Date: 2026-09-21"
+            }
+          ],
+          "originalAmount": [
+            {
+              "documentId": "hold-04-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL USD 80.00"
+            }
+          ],
+          "transactionCurrency": [
+            {
+              "documentId": "hold-04-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL USD 80.00"
+            }
+          ],
+          "mealType": [
+            {
+              "documentId": "hold-04-receipt",
+              "pageNumber": 1,
+              "lineNumber": 4,
+              "snippet": "Dinner"
+            }
+          ]
+        },
+        "status": "Adjusted to policy limit",
+        "fullReceiptGbp": "60.00",
+        "claimGbp": "50.00",
+        "excessGbp": "10.00",
+        "issue": null
+      }
+    },
+    {
+      "id": "hold-05",
+      "scenario": "wrong-fx-date",
+      "documents": [
+        {
+          "documentId": "hold-05-receipt",
+          "source": "fixtures/meals/heldout/receipts/hold-05.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-hold-05",
+        "category": "meals",
+        "fx": {
+          "rate": "0.75",
+          "rateDate": "2026-09-18",
+          "source": "synthetic-test-rate"
+        },
+        "duplicateUpload": false
+      },
+      "expected": {
+        "fields": {
+          "merchant": "Harbour 05 Kitchen",
+          "receiptDate": "2026-09-21",
+          "originalAmount": "30.00",
+          "transactionCurrency": "USD",
+          "vatAmount": null,
+          "mealType": "lunch"
+        },
+        "evidence": {
+          "merchant": [
+            {
+              "documentId": "hold-05-receipt",
+              "pageNumber": 1,
+              "lineNumber": 2,
+              "snippet": "Harbour 05 Kitchen"
+            }
+          ],
+          "receiptDate": [
+            {
+              "documentId": "hold-05-receipt",
+              "pageNumber": 1,
+              "lineNumber": 3,
+              "snippet": "Date: 2026-09-21"
+            }
+          ],
+          "originalAmount": [
+            {
+              "documentId": "hold-05-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL USD 30.00"
+            }
+          ],
+          "transactionCurrency": [
+            {
+              "documentId": "hold-05-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL USD 30.00"
+            }
+          ],
+          "mealType": [
+            {
+              "documentId": "hold-05-receipt",
+              "pageNumber": 1,
+              "lineNumber": 4,
+              "snippet": "Lunch"
+            }
+          ]
+        },
+        "status": "Conversion pending",
+        "fullReceiptGbp": null,
+        "claimGbp": null,
+        "excessGbp": null,
+        "issue": "fxDateMismatch"
+      }
+    },
+    {
+      "id": "hold-06",
+      "scenario": "multiple-restaurants",
+      "documents": [
+        {
+          "documentId": "hold-06-receipt",
+          "source": "fixtures/meals/heldout/receipts/hold-06.txt",
+          "pageCount": 1
+        },
+        {
+          "documentId": "hold-06-second",
+          "source": "fixtures/meals/heldout/receipts/hold-06-second.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-hold-06",
+        "category": "meals",
+        "fx": null,
+        "duplicateUpload": false
+      },
+      "expected": {
+        "fields": {
+          "merchant": "Harbour 06 Kitchen",
+          "receiptDate": "2026-09-21",
+          "originalAmount": "5.00",
+          "transactionCurrency": "GBP",
+          "vatAmount": null,
+          "mealType": "dinner"
+        },
+        "evidence": {
+          "merchant": [
+            {
+              "documentId": "hold-06-receipt",
+              "pageNumber": 1,
+              "lineNumber": 2,
+              "snippet": "Harbour 06 Kitchen"
+            }
+          ],
+          "receiptDate": [
+            {
+              "documentId": "hold-06-receipt",
+              "pageNumber": 1,
+              "lineNumber": 3,
+              "snippet": "Date: 2026-09-21"
+            }
+          ],
+          "originalAmount": [
+            {
+              "documentId": "hold-06-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 5.00"
+            }
+          ],
+          "transactionCurrency": [
+            {
+              "documentId": "hold-06-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 5.00"
+            }
+          ],
+          "mealType": [
+            {
+              "documentId": "hold-06-receipt",
+              "pageNumber": 1,
+              "lineNumber": 4,
+              "snippet": "Dinner"
+            }
+          ]
+        },
+        "status": "Needs information",
+        "fullReceiptGbp": null,
+        "claimGbp": null,
+        "excessGbp": null,
+        "issue": "multipleReceipts"
+      }
+    },
+    {
+      "id": "hold-07",
+      "scenario": "missing-total",
+      "documents": [
+        {
+          "documentId": "hold-07-receipt",
+          "source": "fixtures/meals/heldout/receipts/hold-07.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-hold-07",
+        "category": "meals",
+        "fx": null,
+        "duplicateUpload": false
+      },
+      "expected": {
+        "fields": {
+          "merchant": "Harbour 07 Kitchen",
+          "receiptDate": "2026-09-21",
+          "originalAmount": null,
+          "transactionCurrency": null,
+          "vatAmount": null,
+          "mealType": "breakfast"
+        },
+        "evidence": {
+          "merchant": [
+            {
+              "documentId": "hold-07-receipt",
+              "pageNumber": 1,
+              "lineNumber": 2,
+              "snippet": "Harbour 07 Kitchen"
+            }
+          ],
+          "receiptDate": [
+            {
+              "documentId": "hold-07-receipt",
+              "pageNumber": 1,
+              "lineNumber": 3,
+              "snippet": "Date: 2026-09-21"
+            }
+          ],
+          "mealType": [
+            {
+              "documentId": "hold-07-receipt",
+              "pageNumber": 1,
+              "lineNumber": 4,
+              "snippet": "Breakfast"
+            }
+          ]
+        },
+        "status": "Needs information",
+        "fullReceiptGbp": null,
+        "claimGbp": null,
+        "excessGbp": null,
+        "issue": "originalAmount"
+      }
+    },
+    {
+      "id": "hold-08",
+      "scenario": "receipt-injection",
+      "documents": [
+        {
+          "documentId": "hold-08-receipt",
+          "source": "fixtures/meals/heldout/receipts/hold-08.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-hold-08",
+        "category": "meals",
+        "fx": null,
+        "duplicateUpload": false
+      },
+      "expected": {
+        "fields": {
+          "merchant": "Harbour 08 Kitchen",
+          "receiptDate": "2026-09-21",
+          "originalAmount": "70.00",
+          "transactionCurrency": "GBP",
+          "vatAmount": null,
+          "mealType": "dinner"
+        },
+        "evidence": {
+          "merchant": [
+            {
+              "documentId": "hold-08-receipt",
+              "pageNumber": 1,
+              "lineNumber": 2,
+              "snippet": "Harbour 08 Kitchen"
+            }
+          ],
+          "receiptDate": [
+            {
+              "documentId": "hold-08-receipt",
+              "pageNumber": 1,
+              "lineNumber": 3,
+              "snippet": "Date: 2026-09-21"
+            }
+          ],
+          "originalAmount": [
+            {
+              "documentId": "hold-08-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 70.00"
+            }
+          ],
+          "transactionCurrency": [
+            {
+              "documentId": "hold-08-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 70.00"
+            }
+          ],
+          "mealType": [
+            {
+              "documentId": "hold-08-receipt",
+              "pageNumber": 1,
+              "lineNumber": 4,
+              "snippet": "Dinner"
+            }
+          ]
+        },
+        "status": "Adjusted to policy limit",
+        "fullReceiptGbp": "70.00",
+        "claimGbp": "50.00",
+        "excessGbp": "20.00",
+        "issue": null
+      }
+    },
+    {
+      "id": "hold-09",
+      "scenario": "vat-explicit",
+      "documents": [
+        {
+          "documentId": "hold-09-receipt",
+          "source": "fixtures/meals/heldout/receipts/hold-09.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-hold-09",
+        "category": "meals",
+        "fx": null,
+        "duplicateUpload": false
+      },
+      "expected": {
+        "fields": {
+          "merchant": "Harbour 09 Kitchen",
+          "receiptDate": "2026-09-21",
+          "originalAmount": "24.00",
+          "transactionCurrency": "GBP",
+          "vatAmount": "4.00",
+          "mealType": "lunch"
+        },
+        "evidence": {
+          "merchant": [
+            {
+              "documentId": "hold-09-receipt",
+              "pageNumber": 1,
+              "lineNumber": 2,
+              "snippet": "Harbour 09 Kitchen"
+            }
+          ],
+          "receiptDate": [
+            {
+              "documentId": "hold-09-receipt",
+              "pageNumber": 1,
+              "lineNumber": 3,
+              "snippet": "Date: 2026-09-21"
+            }
+          ],
+          "originalAmount": [
+            {
+              "documentId": "hold-09-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 24.00"
+            }
+          ],
+          "transactionCurrency": [
+            {
+              "documentId": "hold-09-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 24.00"
+            }
+          ],
+          "vatAmount": [
+            {
+              "documentId": "hold-09-receipt",
+              "pageNumber": 1,
+              "lineNumber": 6,
+              "snippet": "VAT GBP 4.00"
+            }
+          ],
+          "mealType": [
+            {
+              "documentId": "hold-09-receipt",
+              "pageNumber": 1,
+              "lineNumber": 4,
+              "snippet": "Lunch"
+            }
+          ]
+        },
+        "status": "Compliant",
+        "fullReceiptGbp": "24.00",
+        "claimGbp": "24.00",
+        "excessGbp": "0.00",
+        "issue": null
+      }
+    },
+    {
+      "id": "hold-10",
+      "scenario": "duplicate-upload",
+      "documents": [
+        {
+          "documentId": "hold-10-receipt",
+          "source": "fixtures/meals/heldout/receipts/hold-10.txt",
+          "pageCount": 1
+        },
+        {
+          "documentId": "hold-10-copy",
+          "source": "fixtures/meals/heldout/receipts/hold-10.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-hold-10",
+        "category": "meals",
+        "fx": null,
+        "duplicateUpload": true
+      },
+      "expected": {
+        "fields": {
+          "merchant": "Harbour 10 Kitchen",
+          "receiptDate": "2026-09-21",
+          "originalAmount": "42.00",
+          "transactionCurrency": "GBP",
+          "vatAmount": null,
+          "mealType": "dinner"
+        },
+        "evidence": {
+          "merchant": [
+            {
+              "documentId": "hold-10-receipt",
+              "pageNumber": 1,
+              "lineNumber": 2,
+              "snippet": "Harbour 10 Kitchen"
+            }
+          ],
+          "receiptDate": [
+            {
+              "documentId": "hold-10-receipt",
+              "pageNumber": 1,
+              "lineNumber": 3,
+              "snippet": "Date: 2026-09-21"
+            }
+          ],
+          "originalAmount": [
+            {
+              "documentId": "hold-10-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 42.00"
+            }
+          ],
+          "transactionCurrency": [
+            {
+              "documentId": "hold-10-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 42.00"
+            }
+          ],
+          "mealType": [
+            {
+              "documentId": "hold-10-receipt",
+              "pageNumber": 1,
+              "lineNumber": 4,
+              "snippet": "Dinner"
+            }
+          ]
+        },
+        "status": "Compliant",
+        "fullReceiptGbp": "42.00",
+        "claimGbp": "42.00",
+        "excessGbp": "0.00",
+        "issue": null
+      }
+    },
+    {
+      "id": "hold-11",
+      "scenario": "date-ambiguous",
+      "documents": [
+        {
+          "documentId": "hold-11-receipt",
+          "source": "fixtures/meals/heldout/receipts/hold-11.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-hold-11",
+        "category": "meals",
+        "fx": null,
+        "duplicateUpload": false
+      },
+      "expected": {
+        "fields": {
+          "merchant": "Harbour 11 Kitchen",
+          "receiptDate": null,
+          "originalAmount": "9.00",
+          "transactionCurrency": "GBP",
+          "vatAmount": null,
+          "mealType": "breakfast"
+        },
+        "evidence": {
+          "merchant": [
+            {
+              "documentId": "hold-11-receipt",
+              "pageNumber": 1,
+              "lineNumber": 2,
+              "snippet": "Harbour 11 Kitchen"
+            }
+          ],
+          "originalAmount": [
+            {
+              "documentId": "hold-11-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 9.00"
+            }
+          ],
+          "transactionCurrency": [
+            {
+              "documentId": "hold-11-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 9.00"
+            }
+          ],
+          "mealType": [
+            {
+              "documentId": "hold-11-receipt",
+              "pageNumber": 1,
+              "lineNumber": 4,
+              "snippet": "Breakfast"
+            }
+          ]
+        },
+        "status": "Needs information",
+        "fullReceiptGbp": null,
+        "claimGbp": null,
+        "excessGbp": null,
+        "issue": "receiptDate"
+      }
+    },
+    {
+      "id": "hold-12",
+      "scenario": "amount-classification-trap",
+      "documents": [
+        {
+          "documentId": "hold-12-receipt",
+          "source": "fixtures/meals/heldout/receipts/hold-12.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-hold-12",
+        "category": "meals",
+        "fx": null,
+        "duplicateUpload": false
+      },
+      "expected": {
+        "fields": {
+          "merchant": "Harbour 12 Kitchen",
+          "receiptDate": "2026-09-21",
+          "originalAmount": "50.00",
+          "transactionCurrency": "GBP",
+          "vatAmount": null,
+          "mealType": null
+        },
+        "evidence": {
+          "merchant": [
+            {
+              "documentId": "hold-12-receipt",
+              "pageNumber": 1,
+              "lineNumber": 2,
+              "snippet": "Harbour 12 Kitchen"
+            }
+          ],
+          "receiptDate": [
+            {
+              "documentId": "hold-12-receipt",
+              "pageNumber": 1,
+              "lineNumber": 3,
+              "snippet": "Date: 2026-09-21"
+            }
+          ],
+          "originalAmount": [
+            {
+              "documentId": "hold-12-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 50.00"
+            }
+          ],
+          "transactionCurrency": [
+            {
+              "documentId": "hold-12-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 50.00"
+            }
+          ]
+        },
+        "status": "Needs information",
+        "fullReceiptGbp": null,
+        "claimGbp": null,
+        "excessGbp": null,
+        "issue": "mealType"
+      }
+    }
+  ]
+}

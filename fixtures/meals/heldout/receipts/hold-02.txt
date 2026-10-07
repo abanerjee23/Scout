@@ -1,0 +1,8 @@
+SYNTHETIC TEST RECEIPT
+Harbour 02 Kitchen
+Date: 2026-09-21
+Lunch
+Food: GBP 25.00
+Service charge: GBP 3.00
+TOTAL GBP 28.00
+Thank you.

@@ -1,0 +1,846 @@
+{
+  "datasetVersion": "0.1",
+  "split": "development",
+  "cases": [
+    {
+      "id": "dev-01",
+      "scenario": "breakfast-within",
+      "documents": [
+        {
+          "documentId": "dev-01-receipt",
+          "source": "fixtures/meals/development/receipts/dev-01.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-dev-01",
+        "category": "meals",
+        "fx": null,
+        "duplicateUpload": false
+      },
+      "expected": {
+        "fields": {
+          "merchant": "Willow 01 Kitchen",
+          "receiptDate": "2026-09-21",
+          "originalAmount": "12.00",
+          "transactionCurrency": "GBP",
+          "vatAmount": null,
+          "mealType": "breakfast"
+        },
+        "evidence": {
+          "merchant": [
+            {
+              "documentId": "dev-01-receipt",
+              "pageNumber": 1,
+              "lineNumber": 2,
+              "snippet": "Willow 01 Kitchen"
+            }
+          ],
+          "receiptDate": [
+            {
+              "documentId": "dev-01-receipt",
+              "pageNumber": 1,
+              "lineNumber": 3,
+              "snippet": "Date: 2026-09-21"
+            }
+          ],
+          "originalAmount": [
+            {
+              "documentId": "dev-01-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 12.00"
+            }
+          ],
+          "transactionCurrency": [
+            {
+              "documentId": "dev-01-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 12.00"
+            }
+          ],
+          "mealType": [
+            {
+              "documentId": "dev-01-receipt",
+              "pageNumber": 1,
+              "lineNumber": 4,
+              "snippet": "Breakfast"
+            }
+          ]
+        },
+        "status": "Compliant",
+        "fullReceiptGbp": "12.00",
+        "claimGbp": "12.00",
+        "excessGbp": "0.00",
+        "issue": null
+      }
+    },
+    {
+      "id": "dev-02",
+      "scenario": "lunch-at-limit",
+      "documents": [
+        {
+          "documentId": "dev-02-receipt",
+          "source": "fixtures/meals/development/receipts/dev-02.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-dev-02",
+        "category": "meals",
+        "fx": null,
+        "duplicateUpload": false
+      },
+      "expected": {
+        "fields": {
+          "merchant": "Willow 02 Kitchen",
+          "receiptDate": "2026-09-21",
+          "originalAmount": "25.00",
+          "transactionCurrency": "GBP",
+          "vatAmount": null,
+          "mealType": "lunch"
+        },
+        "evidence": {
+          "merchant": [
+            {
+              "documentId": "dev-02-receipt",
+              "pageNumber": 1,
+              "lineNumber": 2,
+              "snippet": "Willow 02 Kitchen"
+            }
+          ],
+          "receiptDate": [
+            {
+              "documentId": "dev-02-receipt",
+              "pageNumber": 1,
+              "lineNumber": 3,
+              "snippet": "Date: 2026-09-21"
+            }
+          ],
+          "originalAmount": [
+            {
+              "documentId": "dev-02-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 25.00"
+            }
+          ],
+          "transactionCurrency": [
+            {
+              "documentId": "dev-02-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 25.00"
+            }
+          ],
+          "mealType": [
+            {
+              "documentId": "dev-02-receipt",
+              "pageNumber": 1,
+              "lineNumber": 4,
+              "snippet": "Lunch"
+            }
+          ]
+        },
+        "status": "Compliant",
+        "fullReceiptGbp": "25.00",
+        "claimGbp": "25.00",
+        "excessGbp": "0.00",
+        "issue": null
+      }
+    },
+    {
+      "id": "dev-03",
+      "scenario": "dinner-over",
+      "documents": [
+        {
+          "documentId": "dev-03-receipt",
+          "source": "fixtures/meals/development/receipts/dev-03.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-dev-03",
+        "category": "meals",
+        "fx": null,
+        "duplicateUpload": false
+      },
+      "expected": {
+        "fields": {
+          "merchant": "Willow 03 Kitchen",
+          "receiptDate": "2026-09-21",
+          "originalAmount": "62.00",
+          "transactionCurrency": "GBP",
+          "vatAmount": null,
+          "mealType": "dinner"
+        },
+        "evidence": {
+          "merchant": [
+            {
+              "documentId": "dev-03-receipt",
+              "pageNumber": 1,
+              "lineNumber": 2,
+              "snippet": "Willow 03 Kitchen"
+            }
+          ],
+          "receiptDate": [
+            {
+              "documentId": "dev-03-receipt",
+              "pageNumber": 1,
+              "lineNumber": 3,
+              "snippet": "Date: 2026-09-21"
+            }
+          ],
+          "originalAmount": [
+            {
+              "documentId": "dev-03-receipt",
+              "pageNumber": 1,
+              "lineNumber": 7,
+              "snippet": "TOTAL GBP 62.00"
+            }
+          ],
+          "transactionCurrency": [
+            {
+              "documentId": "dev-03-receipt",
+              "pageNumber": 1,
+              "lineNumber": 7,
+              "snippet": "TOTAL GBP 62.00"
+            }
+          ],
+          "mealType": [
+            {
+              "documentId": "dev-03-receipt",
+              "pageNumber": 1,
+              "lineNumber": 4,
+              "snippet": "Dinner"
+            }
+          ]
+        },
+        "status": "Adjusted to policy limit",
+        "fullReceiptGbp": "62.00",
+        "claimGbp": "50.00",
+        "excessGbp": "12.00",
+        "issue": null
+      }
+    },
+    {
+      "id": "dev-04",
+      "scenario": "meal-unclear",
+      "documents": [
+        {
+          "documentId": "dev-04-receipt",
+          "source": "fixtures/meals/development/receipts/dev-04.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-dev-04",
+        "category": "meals",
+        "fx": null,
+        "duplicateUpload": false
+      },
+      "expected": {
+        "fields": {
+          "merchant": "Willow 04 Kitchen",
+          "receiptDate": "2026-09-21",
+          "originalAmount": "22.00",
+          "transactionCurrency": "GBP",
+          "vatAmount": null,
+          "mealType": null
+        },
+        "evidence": {
+          "merchant": [
+            {
+              "documentId": "dev-04-receipt",
+              "pageNumber": 1,
+              "lineNumber": 2,
+              "snippet": "Willow 04 Kitchen"
+            }
+          ],
+          "receiptDate": [
+            {
+              "documentId": "dev-04-receipt",
+              "pageNumber": 1,
+              "lineNumber": 3,
+              "snippet": "Date: 2026-09-21"
+            }
+          ],
+          "originalAmount": [
+            {
+              "documentId": "dev-04-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 22.00"
+            }
+          ],
+          "transactionCurrency": [
+            {
+              "documentId": "dev-04-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 22.00"
+            }
+          ]
+        },
+        "status": "Needs information",
+        "fullReceiptGbp": null,
+        "claimGbp": null,
+        "excessGbp": null,
+        "issue": "mealType"
+      }
+    },
+    {
+      "id": "dev-05",
+      "scenario": "foreign-within",
+      "documents": [
+        {
+          "documentId": "dev-05-receipt",
+          "source": "fixtures/meals/development/receipts/dev-05.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-dev-05",
+        "category": "meals",
+        "fx": {
+          "rate": "0.75",
+          "rateDate": "2026-09-21",
+          "source": "synthetic-test-rate"
+        },
+        "duplicateUpload": false
+      },
+      "expected": {
+        "fields": {
+          "merchant": "Willow 05 Kitchen",
+          "receiptDate": "2026-09-21",
+          "originalAmount": "24.00",
+          "transactionCurrency": "USD",
+          "vatAmount": null,
+          "mealType": "lunch"
+        },
+        "evidence": {
+          "merchant": [
+            {
+              "documentId": "dev-05-receipt",
+              "pageNumber": 1,
+              "lineNumber": 2,
+              "snippet": "Willow 05 Kitchen"
+            }
+          ],
+          "receiptDate": [
+            {
+              "documentId": "dev-05-receipt",
+              "pageNumber": 1,
+              "lineNumber": 3,
+              "snippet": "Date: 2026-09-21"
+            }
+          ],
+          "originalAmount": [
+            {
+              "documentId": "dev-05-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL USD 24.00"
+            }
+          ],
+          "transactionCurrency": [
+            {
+              "documentId": "dev-05-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL USD 24.00"
+            }
+          ],
+          "mealType": [
+            {
+              "documentId": "dev-05-receipt",
+              "pageNumber": 1,
+              "lineNumber": 4,
+              "snippet": "Lunch"
+            }
+          ]
+        },
+        "status": "Compliant",
+        "fullReceiptGbp": "18.00",
+        "claimGbp": "18.00",
+        "excessGbp": "0.00",
+        "issue": null
+      }
+    },
+    {
+      "id": "dev-06",
+      "scenario": "fx-unavailable",
+      "documents": [
+        {
+          "documentId": "dev-06-receipt",
+          "source": "fixtures/meals/development/receipts/dev-06.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-dev-06",
+        "category": "meals",
+        "fx": null,
+        "duplicateUpload": false
+      },
+      "expected": {
+        "fields": {
+          "merchant": "Willow 06 Kitchen",
+          "receiptDate": "2026-09-21",
+          "originalAmount": "80.00",
+          "transactionCurrency": "USD",
+          "vatAmount": null,
+          "mealType": "dinner"
+        },
+        "evidence": {
+          "merchant": [
+            {
+              "documentId": "dev-06-receipt",
+              "pageNumber": 1,
+              "lineNumber": 2,
+              "snippet": "Willow 06 Kitchen"
+            }
+          ],
+          "receiptDate": [
+            {
+              "documentId": "dev-06-receipt",
+              "pageNumber": 1,
+              "lineNumber": 3,
+              "snippet": "Date: 2026-09-21"
+            }
+          ],
+          "originalAmount": [
+            {
+              "documentId": "dev-06-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL USD 80.00"
+            }
+          ],
+          "transactionCurrency": [
+            {
+              "documentId": "dev-06-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL USD 80.00"
+            }
+          ],
+          "mealType": [
+            {
+              "documentId": "dev-06-receipt",
+              "pageNumber": 1,
+              "lineNumber": 4,
+              "snippet": "Dinner"
+            }
+          ]
+        },
+        "status": "Conversion pending",
+        "fullReceiptGbp": null,
+        "claimGbp": null,
+        "excessGbp": null,
+        "issue": "fxUnavailable"
+      }
+    },
+    {
+      "id": "dev-07",
+      "scenario": "vat-explicit",
+      "documents": [
+        {
+          "documentId": "dev-07-receipt",
+          "source": "fixtures/meals/development/receipts/dev-07.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-dev-07",
+        "category": "meals",
+        "fx": null,
+        "duplicateUpload": false
+      },
+      "expected": {
+        "fields": {
+          "merchant": "Willow 07 Kitchen",
+          "receiptDate": "2026-09-21",
+          "originalAmount": "15.00",
+          "transactionCurrency": "GBP",
+          "vatAmount": "2.50",
+          "mealType": "breakfast"
+        },
+        "evidence": {
+          "merchant": [
+            {
+              "documentId": "dev-07-receipt",
+              "pageNumber": 1,
+              "lineNumber": 2,
+              "snippet": "Willow 07 Kitchen"
+            }
+          ],
+          "receiptDate": [
+            {
+              "documentId": "dev-07-receipt",
+              "pageNumber": 1,
+              "lineNumber": 3,
+              "snippet": "Date: 2026-09-21"
+            }
+          ],
+          "originalAmount": [
+            {
+              "documentId": "dev-07-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 15.00"
+            }
+          ],
+          "transactionCurrency": [
+            {
+              "documentId": "dev-07-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 15.00"
+            }
+          ],
+          "vatAmount": [
+            {
+              "documentId": "dev-07-receipt",
+              "pageNumber": 1,
+              "lineNumber": 6,
+              "snippet": "VAT GBP 2.50"
+            }
+          ],
+          "mealType": [
+            {
+              "documentId": "dev-07-receipt",
+              "pageNumber": 1,
+              "lineNumber": 4,
+              "snippet": "Breakfast"
+            }
+          ]
+        },
+        "status": "Compliant",
+        "fullReceiptGbp": "15.00",
+        "claimGbp": "15.00",
+        "excessGbp": "0.00",
+        "issue": null
+      }
+    },
+    {
+      "id": "dev-08",
+      "scenario": "vat-absent",
+      "documents": [
+        {
+          "documentId": "dev-08-receipt",
+          "source": "fixtures/meals/development/receipts/dev-08.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-dev-08",
+        "category": "meals",
+        "fx": null,
+        "duplicateUpload": false
+      },
+      "expected": {
+        "fields": {
+          "merchant": "Willow 08 Kitchen",
+          "receiptDate": "2026-09-21",
+          "originalAmount": "18.50",
+          "transactionCurrency": "GBP",
+          "vatAmount": null,
+          "mealType": "lunch"
+        },
+        "evidence": {
+          "merchant": [
+            {
+              "documentId": "dev-08-receipt",
+              "pageNumber": 1,
+              "lineNumber": 2,
+              "snippet": "Willow 08 Kitchen"
+            }
+          ],
+          "receiptDate": [
+            {
+              "documentId": "dev-08-receipt",
+              "pageNumber": 1,
+              "lineNumber": 3,
+              "snippet": "Date: 2026-09-21"
+            }
+          ],
+          "originalAmount": [
+            {
+              "documentId": "dev-08-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 18.50"
+            }
+          ],
+          "transactionCurrency": [
+            {
+              "documentId": "dev-08-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 18.50"
+            }
+          ],
+          "mealType": [
+            {
+              "documentId": "dev-08-receipt",
+              "pageNumber": 1,
+              "lineNumber": 4,
+              "snippet": "Lunch"
+            }
+          ]
+        },
+        "status": "Compliant",
+        "fullReceiptGbp": "18.50",
+        "claimGbp": "18.50",
+        "excessGbp": "0.00",
+        "issue": null
+      }
+    },
+    {
+      "id": "dev-09",
+      "scenario": "receipt-unreadable",
+      "documents": [
+        {
+          "documentId": "dev-09-receipt",
+          "source": "fixtures/meals/development/receipts/dev-09.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-dev-09",
+        "category": "meals",
+        "fx": null,
+        "duplicateUpload": false
+      },
+      "expected": {
+        "fields": {
+          "merchant": null,
+          "receiptDate": null,
+          "originalAmount": null,
+          "transactionCurrency": null,
+          "vatAmount": null,
+          "mealType": null
+        },
+        "evidence": {},
+        "status": "Needs information",
+        "fullReceiptGbp": null,
+        "claimGbp": null,
+        "excessGbp": null,
+        "issue": "unreadable"
+      }
+    },
+    {
+      "id": "dev-10",
+      "scenario": "currency-ambiguous",
+      "documents": [
+        {
+          "documentId": "dev-10-receipt",
+          "source": "fixtures/meals/development/receipts/dev-10.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-dev-10",
+        "category": "meals",
+        "fx": null,
+        "duplicateUpload": false
+      },
+      "expected": {
+        "fields": {
+          "merchant": "Willow 10 Kitchen",
+          "receiptDate": "2026-09-21",
+          "originalAmount": "40.00",
+          "transactionCurrency": null,
+          "vatAmount": null,
+          "mealType": "dinner"
+        },
+        "evidence": {
+          "merchant": [
+            {
+              "documentId": "dev-10-receipt",
+              "pageNumber": 1,
+              "lineNumber": 2,
+              "snippet": "Willow 10 Kitchen"
+            }
+          ],
+          "receiptDate": [
+            {
+              "documentId": "dev-10-receipt",
+              "pageNumber": 1,
+              "lineNumber": 3,
+              "snippet": "Date: 2026-09-21"
+            }
+          ],
+          "originalAmount": [
+            {
+              "documentId": "dev-10-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL $ 40.00"
+            }
+          ],
+          "mealType": [
+            {
+              "documentId": "dev-10-receipt",
+              "pageNumber": 1,
+              "lineNumber": 4,
+              "snippet": "Dinner"
+            }
+          ]
+        },
+        "status": "Needs information",
+        "fullReceiptGbp": null,
+        "claimGbp": null,
+        "excessGbp": null,
+        "issue": "transactionCurrency"
+      }
+    },
+    {
+      "id": "dev-11",
+      "scenario": "two-receipts",
+      "documents": [
+        {
+          "documentId": "dev-11-receipt",
+          "source": "fixtures/meals/development/receipts/dev-11.txt",
+          "pageCount": 1
+        },
+        {
+          "documentId": "dev-11-second",
+          "source": "fixtures/meals/development/receipts/dev-11-second.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-dev-11",
+        "category": "meals",
+        "fx": null,
+        "duplicateUpload": false
+      },
+      "expected": {
+        "fields": {
+          "merchant": "Willow 11 Kitchen",
+          "receiptDate": "2026-09-21",
+          "originalAmount": "5.00",
+          "transactionCurrency": "GBP",
+          "vatAmount": null,
+          "mealType": "dinner"
+        },
+        "evidence": {
+          "merchant": [
+            {
+              "documentId": "dev-11-receipt",
+              "pageNumber": 1,
+              "lineNumber": 2,
+              "snippet": "Willow 11 Kitchen"
+            }
+          ],
+          "receiptDate": [
+            {
+              "documentId": "dev-11-receipt",
+              "pageNumber": 1,
+              "lineNumber": 3,
+              "snippet": "Date: 2026-09-21"
+            }
+          ],
+          "originalAmount": [
+            {
+              "documentId": "dev-11-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 5.00"
+            }
+          ],
+          "transactionCurrency": [
+            {
+              "documentId": "dev-11-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 5.00"
+            }
+          ],
+          "mealType": [
+            {
+              "documentId": "dev-11-receipt",
+              "pageNumber": 1,
+              "lineNumber": 4,
+              "snippet": "Dinner"
+            }
+          ]
+        },
+        "status": "Needs information",
+        "fullReceiptGbp": null,
+        "claimGbp": null,
+        "excessGbp": null,
+        "issue": "multipleReceipts"
+      }
+    },
+    {
+      "id": "dev-12",
+      "scenario": "amount-conflict",
+      "documents": [
+        {
+          "documentId": "dev-12-receipt",
+          "source": "fixtures/meals/development/receipts/dev-12.txt",
+          "pageCount": 1
+        }
+      ],
+      "context": {
+        "employeeId": "synthetic-dev-12",
+        "category": "meals",
+        "fx": null,
+        "duplicateUpload": false
+      },
+      "expected": {
+        "fields": {
+          "merchant": "Willow 12 Kitchen",
+          "receiptDate": "2026-09-21",
+          "originalAmount": null,
+          "transactionCurrency": "GBP",
+          "vatAmount": null,
+          "mealType": "breakfast"
+        },
+        "evidence": {
+          "merchant": [
+            {
+              "documentId": "dev-12-receipt",
+              "pageNumber": 1,
+              "lineNumber": 2,
+              "snippet": "Willow 12 Kitchen"
+            }
+          ],
+          "receiptDate": [
+            {
+              "documentId": "dev-12-receipt",
+              "pageNumber": 1,
+              "lineNumber": 3,
+              "snippet": "Date: 2026-09-21"
+            }
+          ],
+          "transactionCurrency": [
+            {
+              "documentId": "dev-12-receipt",
+              "pageNumber": 1,
+              "lineNumber": 5,
+              "snippet": "TOTAL GBP 12.00"
+            }
+          ],
+          "mealType": [
+            {
+              "documentId": "dev-12-receipt",
+              "pageNumber": 1,
+              "lineNumber": 4,
+              "snippet": "Breakfast"
+            }
+          ]
+        },
+        "status": "Needs information",
+        "fullReceiptGbp": null,
+        "claimGbp": null,
+        "excessGbp": null,
+        "issue": "originalAmount"
+      }
+    }
+  ]
+}

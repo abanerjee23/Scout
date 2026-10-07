@@ -1,0 +1,218 @@
+# Unloop — Synthetic Travel & Expense Policy
+
+**Policy source for the proof of concept**
+
+Version: 0.1  
+Owner: Abhinav  
+Status: Draft for owner review  
+Effective date: Not set — do not activate this source until approved  
+Current coverage: Air and Meals rules defined; Ground Transport rules pending
+
+## 1. Purpose and applicability
+
+This synthetic policy exists to test Unloop's expense assessment and in-product policy guidance. It is not the policy of a real employer and must not be used for real reimbursement decisions.
+
+Once approved and activated, this version applies to Air and Meals in the UK-company proof of concept. The employee's report currency is GBP. Ground Transport rules are pending.
+
+Clause IDs are stable citation labels for Unloop. A later policy version may amend a clause, but must not reuse its ID for a different rule. Unloop must show the policy version and applicable clause when explaining a finding.
+
+## 2. General evidence rules
+
+### GEN-01 — A receipt is required
+
+Every expense line must have a receipt or invoice attached before it can be submitted. A booking confirmation may provide supporting journey or cabin details, but does not replace the receipt or invoice.
+
+### GEN-02 — Expense facts must be supported
+
+The merchant, receipt date, original amount and transaction currency must be supported by the attached receipt or invoice. Category-specific facts required by this policy must be supported by the receipt or a permitted supporting document.
+
+The employee may correct an extraction error. A correction does not become policy-compliant merely because it was entered by the employee; required evidence must still support it.
+
+### GEN-03 — Missing and ambiguous evidence
+
+If required evidence is missing, unreadable, contradictory or ambiguous, the expense is **Needs information**. Unloop must ask for the specific missing fact or clearer evidence. It must not guess, deny the expense as noncompliant, or treat an evidence problem as policy ambiguity.
+
+### GEN-04 — VAT
+
+VAT may be recorded when it is explicitly stated on the receipt or invoice. If it cannot be extracted reliably, the VAT field remains blank and does not by itself block the expense.
+
+### GEN-05 — Authority to approve
+
+The employee remains responsible for reviewing the prepared expense and submitting the report. The manager remains responsible for approving submitted expenses. Manager approval cannot override a policy rule.
+
+## 3. Air expenses
+
+### AIR-01 — Supported journey types
+
+An Air expense may describe a **One-way** or **Return** journey.
+
+The following facts are required:
+
+- origin;
+- destination;
+- departure date;
+- return date for a Return journey; and
+- cabin class.
+
+The return date must not be earlier than the departure date. Flight number, departure time, ticket number and booking reference are not required by this policy version.
+
+### AIR-02 — Trusted employee grade
+
+Cabin entitlement is determined using the employee grade stored in the trusted employee profile linked to the authenticated user. The employee cannot enter or edit their own grade. An email address may help locate or provision the profile, but is not evidence of grade.
+
+If the profile does not contain a valid grade, the expense is **Employee profile incomplete** and the cabin check cannot finish. This is a profile-data problem, not a policy exception, and it must not default to the highest cabin allowance.
+
+### AIR-03 — Maximum permitted cabin
+
+The maximum permitted cabin is:
+
+| Employee grade | Maximum permitted cabin |
+|---|---|
+| A–C | Economy |
+| D–F | Premium Economy |
+| G | Business |
+
+An employee may travel in any lower cabin. For example, a Grade G employee may use Economy, Premium Economy or Business; a Grade A–C employee may use Economy only.
+
+For this version, the cabin order is **Economy → Premium Economy → Business**. Airline-specific fare names must be mapped to one of these three cabins before the rule can be applied. If the mapping is not established, the expense is **Needs information** rather than automatically compliant or noncompliant.
+
+### AIR-04 — Cabin evidence
+
+Cabin class must be supported by the receipt or a permitted booking confirmation attached to the expense. The employee may correct an incorrectly extracted cabin, but an unsupported self-declaration is not sufficient evidence for the cabin check.
+
+If the available documents do not establish the cabin class, the expense is **Needs information**.
+
+### AIR-05 — Cabin compliance outcome
+
+An Air expense is **Compliant** with the cabin rule when its evidence-supported cabin is at or below the maximum allowed for the trusted employee grade.
+
+An Air expense is **Noncompliant** when its evidence-supported cabin is above that maximum. Unloop must identify the booked cabin, the permitted maximum and this policy clause. The employee may correct an evidence or profile error through the appropriate controlled process, or exclude a genuinely noncompliant line before submitting the report. The manager cannot approve it as an exception.
+
+## 4. Meal expenses
+
+### MEAL-01 — Meal type
+
+Every Meal expense must be classified as **Breakfast**, **Lunch** or **Dinner**. Unloop may use explicit receipt wording, purchased items and time context to suggest the meal type, but must never infer it from the amount alone. If the evidence does not establish the type reliably, the expense is **Needs information** and the employee must confirm or correct it before the allowance is applied.
+
+### MEAL-02 — Preserve the receipt amount
+
+The total shown on the receipt remains the original expense amount and must never be overwritten by a policy allowance. For a foreign-currency receipt, Unloop first converts the full receipt amount to GBP using the rules in CUR-02 and CUR-03.
+
+The expense record must distinguish:
+
+- the original receipt amount and transaction currency;
+- the full receipt amount converted to GBP, where conversion is required;
+- the applicable GBP meal allowance;
+- the GBP amount included in the claim; and
+- any GBP amount above the allowance that is not included in the claim.
+
+### MEAL-03 — Automatic adjustment to the policy limit
+
+If the full GBP receipt amount is within the allowance for the confirmed meal type, the full amount is included in the claim.
+
+If it exceeds the allowance, Unloop automatically sets the claim amount to the policy limit. The difference is shown as **Amount above policy limit** and is not included in the report total or downstream approved amount. The employee must not be required to calculate or re-enter the maximum claim manually.
+
+The expense receives the user-facing outcome **Adjusted to policy limit** and remains eligible for review and submission at the adjusted amount. Unloop must state the receipt amount, applicable allowance, claim amount, excluded difference and governing clause. The employee may reduce the claim further or exclude the expense, but cannot increase it above the policy limit. The manager cannot override the limit.
+
+The amount comparison and adjustment are deterministic calculations. AI may explain the adjustment in plain language, but must not perform or control the arithmetic.
+
+### MEAL-04 — Meal allowances
+
+The maximum claim amounts are:
+
+| Meal type | Maximum claim amount |
+|---|---:|
+| Breakfast | £15 |
+| Lunch | £25 |
+| Dinner | £50 |
+
+These are separate GBP limits for each meal, not a combined daily allowance or a budget that can be filled using several receipts. Unloop applies the limit only after the meal type is supported or confirmed. The receipt amount must never be used to infer whether the expense is Breakfast, Lunch or Dinner.
+
+### MEAL-05 — Tips and service charges
+
+The complete receipt total, including any tip or service charge shown on the receipt, is treated as the Meal amount and is subject to the same Breakfast, Lunch or Dinner limit. There is no separate additional allowance and no tip or service-charge itemisation in the POC.
+
+### MEAL-06 — One meal, one restaurant, one receipt
+
+For each employee, receipt date and meal type, exactly one Meal expense may be claimed. That expense must represent one meal purchased from one restaurant and must be supported by exactly one final receipt from that restaurant.
+
+Unloop must not combine multiple receipts into one Meal expense, add several smaller receipts up to the policy limit, or allow one meal to be split across multiple expense lines. For example, ten £5 Dinner receipts cannot be combined into a £50 Dinner claim. If more than one receipt or Meal expense exists for the same employee, receipt date and meal type, the affected expenses are **Needs information** while the employee selects the single receipt to claim and excludes the others. If the submitted claim still depends on multiple receipts or restaurants, it is **Noncompliant** and cannot proceed.
+
+Two uploads that are verified as copies of the same receipt are a duplicate-upload problem, not two policy receipts. Unloop should retain one evidence record and must not create or pay a second claim.
+
+## 5. Currency and conversion
+
+### CUR-01 — Submission currency
+
+The report submission currency is GBP. A GBP expense is recorded in GBP and does not require foreign-exchange conversion.
+
+### CUR-02 — Foreign-currency expenses
+
+For an expense incurred in another currency, Unloop must retain and display:
+
+- the original amount and transaction currency;
+- the converted GBP amount;
+- the exchange rate source; and
+- the conversion date.
+
+Conversion changes neither the original amount nor its currency.
+
+### CUR-03 — Conversion date
+
+The FX conversion date must equal the receipt date. It must not be replaced by the upload, processing, travel or report-submission date.
+
+Unloop first uses a saved acceptable rate for that source, currency pair and date. Otherwise it requests the receipt-date rate from Frankfurter pinned to ECB data, with Open Exchange Rates as the approved fallback. If neither source supplies an acceptable matching-date rate, the expense is **Conversion pending** and cannot be submitted until the conversion is resolved. An earlier rate must not be relabelled as a receipt-date rate.
+
+The fallback rate may have a different published basis from the ECB rate; Unloop must preserve the provider and actual rate record used rather than present the sources as identical.
+
+## 6. Interpretation and user-facing outcomes
+
+Unloop may produce the following user-facing outcomes for rules covered by this policy:
+
+| Outcome | Meaning | Required next step |
+|---|---|---|
+| **Compliant** | Required facts are available and the expense meets all applicable rules in this version | Employee reviews the expense before submission |
+| **Adjusted to policy limit** | A Meal receipt exceeds its allowance and Unloop has capped the claim deterministically | Show the original, limit, claim amount and excluded difference; employee reviews before submission |
+| **Noncompliant** | Supported facts clearly breach an applicable rule | Explain the rule; employee corrects an error or excludes the line |
+| **Needs information** | A required fact or evidence is missing, unreadable, contradictory or ambiguous | Ask a targeted question or request evidence |
+| **Employee profile incomplete** | Trusted grade is unavailable or invalid | Correct the controlled employee profile; do not ask the employee to self-declare grade |
+| **Conversion pending** | No acceptable receipt-date FX rate is available | Preserve the draft and retry or resolve the rate; do not guess |
+| **Sent to T&E specialist for review** | Available evidence exposes a genuine policy interpretation conflict that this source set cannot resolve | Show a clearly labelled simulated handoff in the POC; no real specialist is notified |
+
+**Sent to T&E specialist for review** is not used for missing evidence, incomplete profiles, unsupported categories, retrieval outages or other technical failures. Those conditions keep their own explicit status. The specialist handoff is simulated in V1 and does not grant approval.
+
+When this policy contains no applicable rule, Unloop must say that the current policy does not answer the question. Absence of a rule is not permission and must not be converted into an invented restriction.
+
+## 7. Source precedence and version use
+
+Once this policy is approved, its governing clauses take precedence over supporting FAQ or guidance material. Supporting material may explain a rule but cannot change an allowance, create an exception or override a clause.
+
+Unloop must assess an expense and answer related policy questions using the same applicable policy version. It must record the version used. A newer draft must not silently replace the version attached to an existing assessment or approved report.
+
+The effective-date rule for choosing between two active policy versions is not yet agreed. Until it is, only one approved version may be active in the POC.
+
+## 8. Explicitly outside this policy version
+
+This version does not define or assess:
+
+- airfare price caps, market-price comparisons or price intelligence;
+- permitted or preferred carriers;
+- advance-booking windows;
+- trip-duration thresholds for cabin entitlement;
+- corporate discounts or negotiated fares;
+- checked baggage, seat selection, upgrades, change fees or other ancillary charges;
+- other Meal rules not expressly defined in section 4;
+- Ground Transport allowances; or
+- Accommodation.
+
+Unloop must not infer a rule for these topics from common practice or open-web content.
+
+## 9. Decisions required for the next policy revision
+
+Before this policy can cover the full starting POC, agree and add:
+
+1. Taxi and Public Transport eligibility rules, including whether the policy prefers one mode in defined circumstances.
+2. Treatment of tips, cancellation fees and other Ground Transport charges.
+3. The effective date and historic-version selection rule.
+4. The same-date FX rule for weekends, holidays and rates not yet published.
+5. The GBP rounding rule used for receipt conversions, capped claim amounts and report totals.
