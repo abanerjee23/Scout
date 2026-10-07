@@ -7,7 +7,7 @@ from uuid import uuid4
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import text
-from unloop.database import SchemaSelectionError, postgres_engine
+from unloop.database import SchemaSelectionError, postgres_engine, validated_schema
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -85,3 +85,12 @@ def isolated_database(test_url: str, *, require_tls=False, phase=None):
                     connection.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))
         finally:
             admin.dispose()
+
+
+def isolated_schema(engine):
+    """Derive explicit child/app configuration from the verified isolated engine."""
+    with engine.connect() as connection:
+        schema = connection.scalar(text("SELECT current_schema()"))
+    if schema is None:
+        raise SchemaSelectionError("Isolated schema selection failed")
+    return validated_schema(schema)

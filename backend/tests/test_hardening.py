@@ -10,7 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from unloop import create_app
 
-from scripts.postgres_test_support import ROOT, isolated_database
+from scripts.postgres_test_support import ROOT, isolated_database, isolated_schema
 
 ORIGIN = "https://testserver"
 
@@ -88,7 +88,12 @@ def test_hardening_upgrade_backfill_downgrade_reupgrade(postgres):
     with isolated_database(os.environ["TEST_DATABASE_URL"]) as (url, engine):
         with TestClient(
             create_app(
-                {"DATABASE_URL": url, "APP_ORIGIN": ORIGIN, "SESSION_COOKIE_SECURE": "true"}
+                {
+                    "DATABASE_URL": url,
+                    "UNLOOP_TEST_SCHEMA": isolated_schema(engine),
+                    "APP_ORIGIN": ORIGIN,
+                    "SESSION_COOKIE_SECURE": "true",
+                }
             ),
             base_url=ORIGIN,
         ) as client:
@@ -136,7 +141,12 @@ def test_hardening_upgrade_backfill_downgrade_reupgrade(postgres):
                 )
         with TestClient(
             create_app(
-                {"DATABASE_URL": url, "APP_ORIGIN": ORIGIN, "SESSION_COOKIE_SECURE": "true"}
+                {
+                    "DATABASE_URL": url,
+                    "UNLOOP_TEST_SCHEMA": isolated_schema(engine),
+                    "APP_ORIGIN": ORIGIN,
+                    "SESSION_COOKIE_SECURE": "true",
+                }
             ),
             base_url=ORIGIN,
         ) as client:
@@ -149,7 +159,12 @@ def test_migration_missing_employee_fails_atomically(postgres):
     with isolated_database(os.environ["TEST_DATABASE_URL"]) as (url, engine):
         with TestClient(
             create_app(
-                {"DATABASE_URL": url, "APP_ORIGIN": ORIGIN, "SESSION_COOKIE_SECURE": "true"}
+                {
+                    "DATABASE_URL": url,
+                    "UNLOOP_TEST_SCHEMA": isolated_schema(engine),
+                    "APP_ORIGIN": ORIGIN,
+                    "SESSION_COOKIE_SECURE": "true",
+                }
             ),
             base_url=ORIGIN,
         ) as client:

@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from unloop import create_app
 
-from scripts.postgres_test_support import isolated_database
+from scripts.postgres_test_support import isolated_database, isolated_schema
 
 ORIGIN = "https://testserver"
 
@@ -26,7 +26,12 @@ def app_config(postgres):
     url, engine = postgres
     with engine.begin() as connection:
         connection.execute(text("TRUNCATE reports, demo_profiles, demo_sessions CASCADE"))
-    return {"DATABASE_URL": url, "APP_ORIGIN": ORIGIN, "SESSION_COOKIE_SECURE": "true"}
+    return {
+        "DATABASE_URL": url,
+        "UNLOOP_TEST_SCHEMA": isolated_schema(engine),
+        "APP_ORIGIN": ORIGIN,
+        "SESSION_COOKIE_SECURE": "true",
+    }
 
 
 @pytest.fixture

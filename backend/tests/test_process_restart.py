@@ -11,7 +11,7 @@ import httpx
 
 
 @contextmanager
-def api_process(database_url, port):
+def api_process(database_url, port, *, schema):
     origin = f"http://127.0.0.1:{port}"
     process = subprocess.Popen(
         [
@@ -30,6 +30,7 @@ def api_process(database_url, port):
         env={
             **os.environ,
             "DATABASE_URL": database_url,
+            "UNLOOP_TEST_SCHEMA": schema,
             "APP_ORIGIN": origin,
             "SESSION_COOKIE_SECURE": "false",
         },
@@ -64,7 +65,9 @@ def test_report_and_session_survive_an_actual_process_restart(app_config):
         socket_probe.bind(("127.0.0.1", 0))
         port = socket_probe.getsockname()[1]
     with (
-        api_process(app_config["DATABASE_URL"], port) as origin,
+        api_process(
+            app_config["DATABASE_URL"], port, schema=app_config["UNLOOP_TEST_SCHEMA"]
+        ) as origin,
         httpx.Client(base_url=origin) as client,
     ):
         started = client.post("/api/session", json={}, headers={"Origin": origin})
@@ -90,7 +93,9 @@ def test_report_and_session_survive_an_actual_process_restart(app_config):
         report = result.json()
         cookies = dict(client.cookies)
     with (
-        api_process(app_config["DATABASE_URL"], port) as origin,
+        api_process(
+            app_config["DATABASE_URL"], port, schema=app_config["UNLOOP_TEST_SCHEMA"]
+        ) as origin,
         httpx.Client(base_url=origin) as restarted,
     ):
         restarted.cookies.update(cookies)
