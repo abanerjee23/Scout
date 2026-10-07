@@ -1,6 +1,6 @@
 """Disposable test schema in an explicitly supplied PostgreSQL test database."""
 
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from uuid import uuid4
 
@@ -21,24 +21,27 @@ def migrate(engine):
 
 
 @contextmanager
-def isolated_database(test_url: str, *, require_tls=False):
+def isolated_database(test_url: str, *, require_tls=False, phase=None):
+    phase = phase or (lambda _stage: nullcontext())
     schema = "unloop_test_" + uuid4().hex
     admin = postgres_engine(test_url)
     engine = None
     created = False
     try:
-        with admin.begin() as connection:
+        with phase("admin_connection"), admin.begin() as connection:
             connection.execute(text("SET LOCAL statement_timeout = '10s'"))
             connection.execute(text("SET LOCAL lock_timeout = '5s'"))
-            if (
-                require_tls
-                and connection.scalar(
-                    text("SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()")
-                )
-                is not True
-            ):
-                raise RuntimeError("TLS connection required")
-            connection.execute(text(f'CREATE SCHEMA "{schema}"'))
+            with phase("admin_tls"):
+                if (
+                    require_tls
+                    and connection.scalar(
+                        text("SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()")
+                    )
+                    is not True
+                ):
+                    raise RuntimeError("TLS connection required")
+            with phase("schema_creation"):
+                connection.execute(text(f'CREATE SCHEMA "{schema}"'))
         created = True
         url = make_url(test_url)
         scoped = url.update_query_dict(
@@ -47,25 +50,28 @@ def isolated_database(test_url: str, *, require_tls=False):
         engine = postgres_engine(scoped)
         # Verify the actual selected schema before any Alembic operation. A pooler
         # that drops startup options must fail instead of migrating public.
-        with engine.connect() as connection:
-            if connection.scalar(text("SELECT current_schema()")) != schema:
-                raise RuntimeError("Isolated schema selection failed")
-            if (
-                require_tls
-                and connection.scalar(
-                    text("SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()")
-                )
-                is not True
-            ):
-                raise RuntimeError("TLS connection required")
-        migrate(engine)
+        with phase("scoped_connection"), engine.connect() as connection:
+            with phase("scoped_search_path"):
+                if connection.scalar(text("SELECT current_schema()")) != schema:
+                    raise RuntimeError("Isolated schema selection failed")
+            with phase("scoped_tls"):
+                if (
+                    require_tls
+                    and connection.scalar(
+                        text("SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()")
+                    )
+                    is not True
+                ):
+                    raise RuntimeError("TLS connection required")
+        with phase("migration"):
+            migrate(engine)
         yield scoped, engine
     finally:
         if engine is not None:
             engine.dispose()
         try:
             if created:
-                with admin.begin() as connection:
+                with phase("schema_cleanup"), admin.begin() as connection:
                     connection.execute(text("SET LOCAL statement_timeout = '10s'"))
                     connection.execute(text("SET LOCAL lock_timeout = '5s'"))
                     connection.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))

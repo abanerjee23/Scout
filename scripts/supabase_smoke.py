@@ -17,17 +17,17 @@ from sqlalchemy import text
 from sqlalchemy.engine import make_url
 
 from scripts.postgres_test_support import ROOT, isolated_database
+from scripts.smoke_diagnostics import DiagnosticFailure, diagnostic_phase, safe_error_code
 
 PROJECT_REF = "lchwjzunjqtakjdnzrze"
 REVISION = "0002_phase1a_hardening"
 
 
-class SmokeFailure(Exception):
+class SmokeFailure(DiagnosticFailure):
     """Only fixed, non-secret failure codes may be reported."""
 
     def __init__(self, code):
-        self.code = code
-        super().__init__()
+        super().__init__(code)
 
 
 def require(condition, code):
@@ -129,8 +129,11 @@ def api_process(database_url, port):
 
 
 def run_smoke(database_url, *, live):
-    with isolated_database(database_url, require_tls=live) as (scoped_url, engine):
-        with engine.connect() as connection:
+    with isolated_database(database_url, require_tls=live, phase=diagnostic_phase) as (
+        scoped_url,
+        engine,
+    ):
+        with diagnostic_phase("migration_verification"), engine.connect() as connection:
             schema = connection.scalar(text("SELECT current_schema()"))
             require(
                 bool(re.fullmatch(r"unloop_test_[0-9a-f]{32}", schema or "")),
@@ -145,8 +148,11 @@ def run_smoke(database_url, *, live):
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", 0))
             port = probe.getsockname()[1]
-        with api_process(scoped_url, port) as origin:
-            with httpx.Client(base_url=origin, timeout=10, trust_env=False) as client:
+        with diagnostic_phase("http_start"), api_process(scoped_url, port) as origin:
+            with (
+                diagnostic_phase("http_flow"),
+                httpx.Client(base_url=origin, timeout=10, trust_env=False) as client,
+            ):
                 started = client.post("/api/session", json={}, headers={"Origin": origin})
                 require(started.status_code == 201, "session_start_failed")
                 session = started.json()
@@ -208,7 +214,7 @@ def run_smoke(database_url, *, live):
                 )
                 cookies = dict(client.cookies)
         # First Uvicorn process has exited. Reuse its DB-owned cookie in another process.
-        with api_process(scoped_url, port) as origin:
+        with diagnostic_phase("http_restart"), api_process(scoped_url, port) as origin:
             with httpx.Client(
                 base_url=origin, cookies=cookies, timeout=10, trust_env=False
             ) as client:
@@ -271,6 +277,39 @@ def run_smoke(database_url, *, live):
     }
 
 
+def direct_ipv6_only_after_failure(database_url, code, stage):
+    if stage != "admin_connection" or code not in {
+        "connection_timeout",
+        "network_unreachable",
+        "connection_refused",
+        "connection_failed",
+    }:
+        return False
+    host = f"db.{PROJECT_REF}.supabase.co"
+    if make_url(database_url).host != host:
+        return False
+    try:
+        # A bounded, credential-free DNS probe. Neither raw resolver errors nor
+        # the connection URI reach this subprocess or the job output.
+        probe = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import socket; a=socket.getaddrinfo('" + host + "',5432); "
+                "f={x[0] for x in a}; "
+                "print('v6_only' if socket.AF_INET6 in f and socket.AF_INET not in f else 'other')",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=3,
+            check=False,
+            env={"PATH": os.environ.get("PATH", "")},
+        )
+        return probe.returncode == 0 and probe.stdout.strip() == b"v6_only"
+    except Exception:
+        return False
+
+
 def deadline(_signum, _frame):
     raise SmokeFailure("smoke_deadline")
 
@@ -289,6 +328,7 @@ def main(argv=None):
     signal.signal(signal.SIGALRM, deadline)
     signal.alarm(180)
     stage = "target_validation"
+    url = None
     try:
         variable = "TEST_DATABASE_URL" if args.local_test else "SUPABASE_SMOKE_DATABASE_URL"
         url = validate_target(os.environ.get(variable), local_test=args.local_test)
@@ -298,7 +338,12 @@ def main(argv=None):
         return 0
     except BaseException as error:
         # No exception repr/traceback, URL, headers, cookie, SQL or subprocess logs.
-        code = error.code if isinstance(error, SmokeFailure) else "operation_failed"
+        if isinstance(error, DiagnosticFailure):
+            code, stage = error.code, error.stage or stage
+        else:
+            code = safe_error_code(error)
+        if url and direct_ipv6_only_after_failure(url, code, stage):
+            code = "ipv6_only_direct_target"
         print(json.dumps({"status": "failed", "stage": stage, "code": code}))
         return 1
     finally:
