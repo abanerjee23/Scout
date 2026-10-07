@@ -30,6 +30,7 @@ packages = ["backend/unloop"]
 
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]
+pythonpath = ["."]
 
 [tool.ruff]
 target-version = "py312"

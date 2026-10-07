@@ -40,7 +40,7 @@ Starting baseline: `5fa19ba` (tested Phase 0 source and audit, established local
 | Migration and metadata | Pass | Fresh random PostgreSQL schema migrated with Alembic; repeated upgrade and `alembic check` show alignment; only sessions/profiles/reports plus Alembic table. |
 | Empty/loading/error and narrow-screen states | Pass | Real browser creation/mobile correction/no-overflow; invalid session requires explicit new session; error/manager-empty UI; desktop/mobile screenshots inspected. |
 | Supabase PostgreSQL migration/create/reopen | **UNVERIFIED** | No Supabase `DATABASE_URL` was configured. Disposable local PostgreSQL is real persistence evidence, not provider connectivity proof. |
-| Published commit's GitHub Actions | **NOT RUN** | CI configuration includes PostgreSQL services and required integration/browser checks. Local checks do not count as hosted Actions results. |
+| Published commit's GitHub Actions | **FOLLOW-UP REQUIRED** | Baseline Actions passed. The first Phase 1A run exposed a Linux test-import path issue (`scripts` was not importable); the follow-up explicitly includes the repository root in pytest's Python path. Verify the follow-up commit's Actions before claiming green hosted CI. |
 
 ## Checks run
 
