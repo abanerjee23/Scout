@@ -4,6 +4,7 @@ import json
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy.engine import make_url
 
 from scripts import supabase_smoke as smoke
 from scripts.postgres_test_support import isolated_database
@@ -19,10 +20,26 @@ VALID = f"postgresql://postgres.{PROJECT}:synthetic-password@{POOLER}:5432/postg
         VALID,
         f"postgresql://postgres:synthetic-password@db.{PROJECT}.supabase.co:5432/postgres?sslmode=require",
         VALID.replace("sslmode=require", "sslmode=verify-full"),
+        VALID.replace("sslmode=require", "sslmode=verify-ca"),
     ],
 )
 def test_live_target_accepts_only_expected_project_tls(url):
     assert smoke.validate_target(url) == url
+
+
+@pytest.mark.parametrize(
+    "host, username",
+    [
+        (POOLER, f"postgres.{PROJECT}"),
+        (f"db.{PROJECT}.supabase.co", "postgres"),
+    ],
+)
+def test_missing_tls_mode_is_normalized_without_changing_login(host, username):
+    raw = f"postgresql://{username}:synthetic%40password@{host}:5432/postgres"
+    normalized = make_url(smoke.validate_target(raw))
+    assert normalized.query == {"sslmode": "require"}
+    assert normalized.set(query={}) == make_url(raw)
+    assert normalized.password == "synthetic@password"
 
 
 @pytest.mark.parametrize(
@@ -33,8 +50,10 @@ def test_live_target_accepts_only_expected_project_tls(url):
         VALID.replace(PROJECT, "anotherproject"),
         VALID.replace(POOLER, "attacker.example"),
         VALID.replace(":5432/", ":6543/"),
-        VALID.replace("?sslmode=require", ""),
         VALID.replace("sslmode=require", "sslmode=prefer"),
+        VALID.replace("sslmode=require", "sslmode=disable"),
+        VALID.replace("sslmode=require", "sslmode=allow"),
+        VALID + "&sslmode=require",
         VALID + "&host=attacker.example",
         VALID + "&hostaddr=127.0.0.1",
         VALID + "&options=-csearch_path=public",

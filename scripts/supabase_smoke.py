@@ -58,6 +58,8 @@ def validate_target(raw_url, *, local_test=False):
             # Use direct/session pooling; transaction pooling cannot promise search_path state.
             require(url.port == 5432, "direct_or_session_port_required")
             require(url.database == "postgres" and bool(url.password), "database_login_required")
+            if "sslmode" not in url.query:
+                url = url.update_query_dict({"sslmode": "require"})
             require(
                 url.query.get("sslmode") in {"require", "verify-ca", "verify-full"}, "tls_required"
             )
@@ -65,7 +67,7 @@ def validate_target(raw_url, *, local_test=False):
         raise
     except Exception:
         raise SmokeFailure("invalid_connection_configuration") from None
-    return raw_url
+    return raw_url if local_test else url.render_as_string(hide_password=False)
 
 
 @contextmanager
