@@ -4,7 +4,7 @@ Date: 7 October 2026 (Europe/London).
 
 Scope: server-owned demo sessions/personas, deterministic Astra report proposal/review/confirmation, PostgreSQL-backed report list/read/reopen. Backend is **FastAPI/Python**, explicitly requested by the user after the audit. One implementation agent, branch `codex/phase-1a`, no manual worktree.
 
-**Result: Phase 1A implementation and local PostgreSQL gates pass. Supabase PostgreSQL connectivity remains unverified; full provider-specific Phase 1A sign-off is PARTIAL.** Phases 1B/1C and later are not started by this increment. GitHub publication/CI are separate delivery gates, not implied by local passing tests.
+**Result: Phase 1A implementation, local PostgreSQL gates and hosted GitHub CI pass. Supabase PostgreSQL connectivity remains unverified; full provider-specific Phase 1A sign-off is PARTIAL.** Phases 1B/1C and later are not started by this increment. Cloud environment/review setup is a separate gate.
 
 Starting baseline: `5fa19ba` (tested Phase 0 source and audit, established locally). The prior audit remains a dated pre-implementation matrix. The build plan, A1 schema, fixture checker, development/held-out fixtures and archive originals are unchanged. Flask was replaced by FastAPI per the user's direct instruction; its health capability and existing contract/fixture/preview checks are retained with the API test harness adapted.
 
@@ -40,7 +40,7 @@ Starting baseline: `5fa19ba` (tested Phase 0 source and audit, established local
 | Migration and metadata | Pass | Fresh random PostgreSQL schema migrated with Alembic; repeated upgrade and `alembic check` show alignment; only sessions/profiles/reports plus Alembic table. |
 | Empty/loading/error and narrow-screen states | Pass | Real browser creation/mobile correction/no-overflow; invalid session requires explicit new session; error/manager-empty UI; desktop/mobile screenshots inspected. |
 | Supabase PostgreSQL migration/create/reopen | **UNVERIFIED** | No Supabase `DATABASE_URL` was configured. Disposable local PostgreSQL is real persistence evidence, not provider connectivity proof. |
-| Published commit's GitHub Actions | **FOLLOW-UP REQUIRED** | Baseline Actions passed. The first Phase 1A run exposed a Linux test-import path issue (`scripts` was not importable); the follow-up explicitly includes the repository root in pytest's Python path. Verify the follow-up commit's Actions before claiming green hosted CI. |
+| Published commit's GitHub Actions | **PASS** | Baseline `5fa19ba` passed. The first Phase 1A run exposed a Linux `scripts` import failure; `8484701` explicitly sets pytest's root Python path. Its backend/frontend jobs passed in [push CI](https://github.com/abanerjee23/UnLoop/actions/runs/37628510417) and [PR CI](https://github.com/abanerjee23/UnLoop/actions/runs/37628516842). |
 
 ## Checks run
 
@@ -57,7 +57,7 @@ Starting baseline: `5fa19ba` (tested Phase 0 source and audit, established local
 | `alembic upgrade head` / repeat / metadata check | Pass on PostgreSQL 17 |
 | Source preservation | Build plan, A1 schema/checker/fixtures/archive unchanged against baseline |
 
-Local runtime: Python 3.12.12, Node 25.9.0, npm 11.12.1, uv 0.11.7, PostgreSQL 17 in a disposable local Docker container bound to `127.0.0.1:15432`. CI selects Node 22 and independently provisioned PostgreSQL services; its execution is still unverified. Tests use isolated random schemas, not application rows. API/browser processes are stopped after checks. One dependency deprecation warning from Starlette's HTTPX test compatibility is non-failing; it is not an application failure or quality metric.
+Local runtime: Python 3.12.12, Node 25.9.0, npm 11.12.1, uv 0.11.7, PostgreSQL 17 in a disposable local Docker container bound to `127.0.0.1:15432`. Hosted CI used Node 22 and independent PostgreSQL services; backend and browser jobs passed for `8484701`. Tests use isolated random schemas, not application rows. API/browser processes are stopped after checks. One dependency deprecation warning from Starlette's HTTPX test compatibility is non-failing; it is not an application failure or quality metric.
 
 Fresh screenshots are generated and ignored at `artifacts/local/phase1a-desktop.png` and `phase1a-mobile.png`; they were visually inspected for readable controls, layout and overflow. They are local evidence, not deployed assets. Test durations are not product latency or savings metrics. No model/provider experiment ran; model tokens/cost are not measured or inferred.
 
@@ -69,8 +69,8 @@ Fresh screenshots are generated and ignored at `artifacts/local/phase1a-desktop.
 - Seeded employee grade C, predefined display identities. Persona toggle deliberately lets the same demo owner use both views; server checks apply to the current persona and every object.
 - Proposal HMAC-SHA256 signing uses a separate private per-session secret stored in PostgreSQL; the visible CSRF token cannot sign proposals. Original chat descriptions/proposals are not persisted as reports; corrected confirmed headers are.
 - Only draft report status/version 1 exists. No fake submissions, approval amounts, upload controls, Gmail connections or worker outputs are added. Future schema changes belong to later migrations.
-- Provider-specific Supabase sign-off and hosted CI publication are outstanding. These must be recorded before advancing as though every 1A delivery gate passed.
+- Provider-specific Supabase sign-off is outstanding. Baseline and feature branch are published with a draft PR and passing CI for the Linux import fix. Codex Cloud connector/environment setup remains pending; no Cloud review result is claimed.
 
 ## Remaining sign-off
 
-Configure a non-production Supabase PostgreSQL connection securely, apply the migration, run the API and confirm/list/reload/restart a report with the same live session, then repeat owner/manager access checks. Record the actual target/run evidence without credentials or raw report text. Publish baseline/feature branch and check the actual commit's Actions only when Git delivery is authorized. Do not start 1B or 1C as part of resolving this report.
+Configure a non-production Supabase PostgreSQL connection securely, apply the migration, run the API and confirm/list/reload/restart a report with the same live session, then repeat owner/manager access checks. Record the actual target/run evidence without credentials or raw report text. Baseline and feature branch were published on user authorization; [draft PR #1](https://github.com/abanerjee23/UnLoop/pull/1) and its CI are available. Complete the separate Cloud environment setup and run the requested review. Do not start 1B or 1C as part of resolving this report.
