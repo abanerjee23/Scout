@@ -450,3 +450,62 @@ def test_real_worker_process_crash_then_new_process_recovers(client, postgres):
     assert recovered.returncode == 0
     item = docs(client, report)[0]
     assert item["state"] == "validated" and item["job"]["attempts"] == 2
+
+
+@pytest.mark.parametrize("change", ["none", "persona", "expiry"])
+def test_upload_validation_releases_connection_and_rechecks_authority(
+    client, postgres, monkeypatch, change
+):
+    from threading import Event
+
+    import unloop.evidence as evidence
+    from unloop.models import DemoSession
+
+    report, headers = report_and_headers(client)
+    entered, release = Event(), Event()
+    validate = evidence.bounded_validation
+
+    def delayed(content, mime):
+        entered.set()
+        assert release.wait(10)
+        return validate(content, mime)
+
+    monkeypatch.setattr(evidence, "bounded_validation", delayed)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        pending = pool.submit(upload, client, report, headers)
+        try:
+            assert entered.wait(5)
+            # A read using the usual session lock must complete while validation is held.
+            assert pool.submit(client.get, "/api/reports").result(timeout=2).status_code == 200
+            if change == "persona":
+                response = pool.submit(
+                    client.patch,
+                    "/api/session/persona",
+                    headers=headers,
+                    json={"persona": "manager"},
+                ).result(timeout=2)
+                assert response.status_code == 200
+            elif change == "expiry":
+                with postgres[1].begin() as db:
+                    db.execute(
+                        DemoSession.__table__.update().values(
+                            created_at=datetime.now(UTC) - timedelta(hours=1),
+                            expires_at=datetime.now(UTC) - timedelta(seconds=1),
+                        )
+                    )
+        finally:
+            release.set()
+        response = pending.result(timeout=10)
+    assert response.status_code == {"none": 201, "persona": 403, "expiry": 401}[change]
+    with postgres[1].connect() as db:
+        for model in (Document, DocumentBytes, EvidenceLink, EvidenceJob):
+            assert db.scalar(select(func.count()).select_from(model)) == (
+                1 if change == "none" else 0
+            )
+
+
+def test_upload_content_type_error_is_multipart(client):
+    report, headers = report_and_headers(client)
+    response = client.post(f"/api/reports/{report}/evidence", headers=headers, json={})
+    assert response.status_code == 415
+    assert response.json()["error"]["code"] == "multipart_required"

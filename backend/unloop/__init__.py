@@ -107,7 +107,14 @@ def create_app(test_config: dict | None = None) -> FastAPI:
             expected_type = "multipart/form-data" if upload else "application/json"
             if request.headers.get("content-type", "").split(";")[0] != expected_type:
                 return JSONResponse(
-                    {"error": {"code": "json_required", "message": "JSON is required."}},
+                    {
+                        "error": {
+                            "code": "multipart_required" if upload else "json_required",
+                            "message": "Multipart form data is required."
+                            if upload
+                            else "JSON is required.",
+                        }
+                    },
                     status_code=415,
                 )
             length = request.headers.get("content-length", "")

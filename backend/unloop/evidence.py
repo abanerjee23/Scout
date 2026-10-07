@@ -10,12 +10,22 @@ from uuid import UUID
 
 from fastapi import APIRouter, Request, Response
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException
 from starlette.formparsers import MultiPartException
 
-from unloop.api import ApiProblem, Db, MutationOwner, Owner, employee
+from unloop.api import (
+    ApiProblem,
+    Db,
+    MutationOwner,
+    Owner,
+    current_session,
+    employee,
+    mutation_session,
+    resolve_session,
+)
 from unloop.evidence_validation import MAX_BYTES, MAX_FILES, InvalidDocument
 from unloop.models import Document, DocumentBytes, EvidenceJob, EvidenceLink, Report
 
@@ -179,8 +189,14 @@ def list_evidence(report_id: UUID, db: Db, owner: Owner):
 
 
 @router.post("/reports/{report_id}/evidence", status_code=201)
-async def upload_evidence(report_id: UUID, request: Request, db: Db, owner: MutationOwner):
-    own_report(db, owner, report_id)
+async def upload_evidence(report_id: UUID, request: Request):
+    if request.app.state.engine is None:
+        raise ApiProblem(503, "database_unavailable", "Report storage is not configured.")
+    # Release the initial read transaction before receiving or parsing any file bytes.
+    with Session(request.app.state.engine) as initial, initial.begin():
+        owner = resolve_session(request, initial, lock=False)
+        mutation_session(request, owner)
+        own_report(initial, owner, report_id)
     try:
         form = await request.form(max_files=MAX_FILES, max_fields=1, max_part_size=1024)
     except HTTPException as error:
@@ -211,51 +227,56 @@ async def upload_evidence(report_id: UUID, request: Request, db: Db, owner: Muta
                     "File rejected. Use a valid JPEG, PNG or PDF, up to 10 MiB and ten pages.",
                 ) from None
             checked.append((content, info, safe_filename(file.filename, info["mime_type"])))
-        # current_session locks the owning session, serializing same-owner dedup.
-        # Validate the whole batch before any writes: invalid batches leave zero rows.
-        now, result = datetime.now(UTC), []
-        for content, info, filename in checked:
-            document = db.scalar(
-                select(Document).where(
-                    Document.session_id == owner.id, Document.sha256 == info["sha256"]
-                )
-            )
-            duplicate = document is not None
-            if document is None:
-                document = Document(
-                    session_id=owner.id,
-                    filename=filename,
-                    byte_size=len(content),
-                    created_at=now,
-                    state="queued",
-                    revision=1,
-                    **info,
-                )
-                db.add(document)
-                db.flush()
-                db.add(DocumentBytes(document_id=document.id, content=content))
-                queue_job(db, document, now)
-            link = db.scalar(
-                select(EvidenceLink).where(
-                    EvidenceLink.report_id == report_id,
-                    EvidenceLink.document_id == document.id,
-                    EvidenceLink.source == source,
-                )
-            )
-            if link is None:
-                db.add(
-                    EvidenceLink(
-                        session_id=owner.id,
-                        report_id=report_id,
-                        document_id=document.id,
-                        source=source,
-                        filename=filename,
-                        created_at=now,
+        # Fresh authority and a short lock serialize dedup only after validation.
+        with Session(request.app.state.engine) as db, db.begin():
+            owner = current_session(request, db)
+            mutation_session(request, owner)
+            own_report(db, owner, report_id)
+            now, result = datetime.now(UTC), []
+            for content, info, filename in checked:
+                document = db.scalar(
+                    select(Document).where(
+                        Document.session_id == owner.id, Document.sha256 == info["sha256"]
                     )
                 )
-            db.flush()
-            result.append({"id": str(document.id), "duplicate": duplicate, "state": document.state})
-        return {"documents": result}
+                duplicate = document is not None
+                if document is None:
+                    document = Document(
+                        session_id=owner.id,
+                        filename=filename,
+                        byte_size=len(content),
+                        created_at=now,
+                        state="queued",
+                        revision=1,
+                        **info,
+                    )
+                    db.add(document)
+                    db.flush()
+                    db.add(DocumentBytes(document_id=document.id, content=content))
+                    queue_job(db, document, now)
+                link = db.scalar(
+                    select(EvidenceLink).where(
+                        EvidenceLink.report_id == report_id,
+                        EvidenceLink.document_id == document.id,
+                        EvidenceLink.source == source,
+                    )
+                )
+                if link is None:
+                    db.add(
+                        EvidenceLink(
+                            session_id=owner.id,
+                            report_id=report_id,
+                            document_id=document.id,
+                            source=source,
+                            filename=filename,
+                            created_at=now,
+                        )
+                    )
+                db.flush()
+                result.append(
+                    {"id": str(document.id), "duplicate": duplicate, "state": document.state}
+                )
+            return {"documents": result}
     finally:
         await form.close()
 
