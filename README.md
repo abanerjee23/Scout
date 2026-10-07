@@ -1,117 +1,105 @@
 # Unloop
 
-AI-assisted expense preparation, in-context policy guidance and line-specific review.
+Expense report preparation with an Employee/Manager demo workspace.
 
-Full-version repository: [abanerjee23/UnLoop](https://github.com/abanerjee23/UnLoop). Delivery follows [build → test → commit → push → check CI → repeat](docs/product/DELIVERY_WORKFLOW.md), shipping small working increments within each phase. The separate hackathon repository is abanerjee23/Un-Loop.
+**Current implementation: Phase 1A on FastAPI/Python.** An employee can describe a report to Astra, review/correct its name, explicit dates and business purpose, confirm it, and reopen the saved report. PostgreSQL owns sessions, profiles and reports. Manager mode cannot inspect employee drafts. This is a persona demonstration, not production multi-user authentication.
 
-**Current implementation: Phase 0 scaffold.** React displays synthetic expected Meal outcomes and Flask exposes a health endpoint. This repository does not yet implement the persona toggle, chat report creation, receipt upload, Gmail intake, persistence, live extraction, FX or manager approval. Disabled controls make the synthetic preview boundary explicit.
+Astra report intake is **deterministic**, with no model/API call: it recognizes supported explicit date formats and asks for review when fields are missing or ambiguous. Confirmation and database writes belong to application code. No manager details are requested.
 
-**Current design:** Employee/Manager toggle without app login; Astra proposes a confirmed report header without manager details; optional Gmail and chat/workspace JPEG/PNG/PDF uploads; chat clarifications automatically open the relevant expense; employee explicitly submits; manager approves all or eligible selected lines; both personas receive in-app inbox events. Learning from corrections is excluded. Railway hosts the web service and worker.
+**Not implemented:** uploads, Gmail, extraction, policy assessment, FX, submission, approval, Teams, RAG, durable worker processing or Railway deployment. The separately labelled synthetic Meal preview remains at `/?preview=1`; its values are expected outcomes, not extracted/saved expenses.
 
-## Documentation
+Local PostgreSQL integration and real API/browser checks pass. **Supabase connectivity and hosted CI are separate, unverified gates** until configured/executed; this does not claim full Phase 1 completion. See [Phase 1A validation](docs/validation/PHASE_1A_VALIDATION.md).
 
-Only these four documentation files remain at the repository root:
+Full-version repository: [abanerjee23/UnLoop](https://github.com/abanerjee23/UnLoop). The separate hackathon repository `abanerjee23/Un-Loop` is outside this work.
 
-| Document | Purpose |
-|---|---|
-| [Unloop_Vision.md](Unloop_Vision.md) | Product scope, user journey and agreed decisions |
-| [Architecture.md](Architecture.md) | Component authority, session/data boundaries and integrations |
-| [BUILD_PLAN.md](BUILD_PLAN.md) | Phased delivery, acceptance gates and implementation status |
-| [README.md](README.md) | Repository navigation, current capabilities and run instructions |
+## Run the workspace
 
-Supporting documents are grouped in [docs](docs/README.md):
-
-- [Agent contract](docs/agents/Receipt_Extraction_Agent.md)
-- [Synthetic policy](docs/policy/Synthetic_T&E_Policy.md)
-- [Gmail integration design](docs/integrations/GMAIL.md)
-- [Product iteration log](docs/product/PRODUCT_ITERATION_LOG.md) and [delivery workflow](docs/product/DELIVERY_WORKFLOW.md)
-- [Phase 0 validation](docs/validation/ITER-001_VALIDATION.md) and [documentation update validation](docs/validation/DOCS_UPDATE_VALIDATION.md)
-
-Previous versions and outdated architecture diagrams are preserved in [archive](archive/README.md). Historical snapshots are not current requirements. The hackathon plan in the separate UnLoop folder is reference-only and was not modified. Active code, dependency/configuration files and local development assets stay in their existing folders; this organization does not restructure the application.
-
-## Run the current scaffold
-
-Requirements: Node 22.12+ and Python 3.12 with uv. Commands run from the repository root unless noted.
+Requirements: Python 3.12/uv, Node 22.12+ and PostgreSQL. Docker Compose is a local database option; no worktree is required. From the repository root:
 
 ```sh
 uv sync --frozen
 npm ci --prefix frontend
+docker compose up -d --wait
+cp .env.example .env
 ```
 
-Terminal 1:
+For the local Compose database, set these server-only values in the ignored `.env`:
+
+```dotenv
+DATABASE_URL=postgresql://unloop:unloop_local_dev@127.0.0.1:15432/unloop
+TEST_DATABASE_URL=postgresql://unloop:unloop_local_dev@127.0.0.1:15432/unloop
+APP_ORIGIN=http://127.0.0.1:5173
+SESSION_COOKIE_SECURE=false
+SESSION_TTL_SECONDS=28800
+```
+
+These are public local-development credentials for a database bound to localhost. For a non-production Supabase database, configure its actual PostgreSQL connection/TLS options securely instead. Do not paste real service credentials into docs/chat or put them in frontend variables. No Supabase Auth keys, model keys or Gmail credentials are needed for 1A.
+
+Apply migrations explicitly before starting the API:
 
 ```sh
-uv run flask --app unloop run --host 127.0.0.1 --port 5001
+uv run --env-file .env alembic upgrade head
+uv run --env-file .env uvicorn unloop:create_app --factory --host 127.0.0.1 --port 5001
 ```
 
-Terminal 2:
+In another terminal:
 
 ```sh
 npm run dev --prefix frontend
 ```
 
-Open http://127.0.0.1:5173. Vite proxies `/api` to Flask on port 5001. Both development servers bind to localhost; these are not production deployment commands. No credentials are needed for the synthetic preview. Keep real values in ignored environment files/server configuration, never in docs or chat. The scaffold does not automatically load an `.env` file.
+Open [the workspace](http://127.0.0.1:5173). Vite proxies `/api` to FastAPI on port 5001. Use the exact `APP_ORIGIN`; a different hostname such as `localhost` versus `127.0.0.1` is a different origin. The app does not silently load `.env`; the `uv --env-file` commands do.
 
-## Scaffold checks
+Try: “Prepare my London expense report for 1–4 October 2026 for a client workshop.” Review/correct the proposed header, then choose **Confirm and create report**. Reload or use Your reports to reopen it. Switch to Manager: drafts disappear and direct draft API reads are blocked. Switch back to Employee to reopen them.
+
+The default session lasts eight hours from creation, without sliding renewal. Its opaque bearer is in a host-only httpOnly SameSite=Lax cookie; only its SHA256 hash is stored. Secure cookies are the default. `SESSION_COOKIE_SECURE=false` is permitted only for explicit HTTP localhost development. Mutations require the exact allowed Origin, JSON and a session-bound CSRF header; bootstrap requires Origin/JSON before any cookie exists. Unknown/expired sessions are rejected and their cookies cleared. Starting a new session does not recover expired-session reports. Fixed demo grade C is server-seeded and not editable.
+
+`GET /api/health` is liveness only. `GET /api/readiness` checks migrated PostgreSQL; unavailable storage gives recoverable 503 copy. The API never creates tables automatically. `docker compose stop` retains local DB data; do not remove its volume unless you intentionally want to discard local demo data.
+
+## Deterministic intake boundary
+
+Supported date input: `2026-10-01 to 2026-10-04`, `1–4 October 2026`, `30 September 2026 to 4 October 2026`, and a single explicit date for a one-day report. English month names are supported. Relative dates, ambiguous numeric dates, missing years and partly specified ranges are not guessed; fill the review fields instead. Years must be 2000–2100; end must not precede start. Report names are 3–120 characters, purpose 5–500, with whitespace trimmed and control characters rejected.
+
+A proposal makes no report write. A signed session-bound proposal expires after 20 minutes. Explicit confirmation revalidates all header fields and creates a draft. Repeating the same confirmation returns the same report; changing an already confirmed proposal gives 409. Owner-row locking and a database uniqueness constraint protect concurrent confirmation. Session/identity/grade/manager fields supplied by a client are rejected.
+
+## Validate
 
 ```sh
-uv run ruff check backend scripts
-uv run pytest -q
+uv run --env-file .env ruff check backend scripts
+uv run --env-file .env pytest -q
 uv run python -m unloop.fixture_check
 uv run python -m unloop.worker --check
 npm run build --prefix frontend
-```
-
-Browser checks:
-
-```sh
 cd frontend
 npx playwright install chromium
-npm test
+cd ..
+uv run --env-file .env -- npm test --prefix frontend
 ```
 
-Browser tests cover static expected-value presentation, scenario selection, evidence visibility, API failure copy and mobile overflow. They stub health responses; separately check the real Flask endpoint with `curl http://127.0.0.1:5001/api/health`. Tests do not prove a live receipt-processing flow.
+`TEST_DATABASE_URL` must reference a dedicated test/development PostgreSQL database. Tests create/drop uniquely named schemas and apply actual Alembic migrations; they never truncate application tables in the public schema. The backend tests cover cookie/expiry, CSRF, ownership, grade/persona spoofing, validation, concurrent confirmation and restart. Browser workspace tests start a real API with a separate disposable schema and do not intercept report/session responses. Ports 5001 and 5173 must be free during browser tests.
 
-The fixture checker validates 24 scenarios, twelve development/twelve held-out. It proves fixture integrity, not model accuracy. [Fixture guidance](fixtures/meals/README.md) describes dataset separation and gaps. Render development receipt images with:
+Without `TEST_DATABASE_URL`, integration/browser workspace tests explicitly skip; that is not a passing 1A persistence gate. CI supplies PostgreSQL 17 and fails if required DB configuration is absent. The two retained preview tests stub health only. Screenshots/build output stay ignored. The worker remains a check-only scaffold; no queue was implemented.
 
-```sh
-uv run python scripts/render_receipts.py
-```
+The fixture checker validates 24 labelled Meals (12 development / 12 held-out), **not model quality**. The A1 v0.1 schema and fixtures remain unchanged. Do not feed held-out expected labels into UI/model input. [Fixture guidance](fixtures/meals/README.md) records diversity and integration gaps.
 
-Generated images/screenshots remain in ignored `artifacts/local/`. Uniform bootstrap images are insufficient to claim robustness to actual photos/PDFs. Candidate upload bounds are 10 MiB/file, ten pages and ten files/batch; enforcement is future Phase 1 work. The current request-size ceiling alone is not proof of validated upload handling.
+## Code and documentation map
 
-## Code map
-
-| Folder | Current purpose |
+| Path | Purpose |
 |---|---|
-| `frontend/` | React synthetic receipt/claim preview and browser checks |
-| `backend/unloop/` | Flask health route, A1 Meal output schema, fixture validator and checkable worker stub |
-| `backend/tests/` | Contract, fixture and health-route tests |
-| `backend/migrations/` | Phase 1 migration guidance; no initialized database yet |
-| `fixtures/meals/` | Separate development/held-out transcripts and labels |
-| `scripts/` | Receipt fixture renderer |
-| `.github/workflows/` | Scaffold CI configuration; no hosted CI execution claimed |
-| `artifacts/local/` | Ignored generated development evidence |
-| `docs/` | Active supporting contracts, integration guidance and evidence |
-| `archive/` | Frozen superseded docs/diagrams, with checksums |
+| `backend/unloop/api.py` | Authorized sessions/personas/proposals/confirmed reports/readiness |
+| `backend/unloop/database.py`, `models.py` | PostgreSQL configuration and Phase 1A-only entities |
+| `backend/unloop/intake.py` | Pydantic inputs and bounded deterministic parsing |
+| `backend/migrations/` | Alembic initial migration; [migration instructions](backend/migrations/README.md) |
+| `frontend/src/components/` | Astra intake, report list and saved workspace |
+| `frontend/src/SyntheticPreview.tsx` | Retained Phase 0 preview, separate from saved data |
+| `backend/tests/`, `frontend/tests/` | Deterministic, PostgreSQL, process-restart and browser checks |
+| `scripts/browser_test_server.py` | Real API/disposable DB for browser tests |
+| `.github/workflows/checks.yml` | Backend and browser CI with independent PostgreSQL services |
 
-SQLAlchemy/Alembic, the PostgreSQL adapter and Agents SDK are added when their actual integration is built. A valid evidence location in the current schema does not prove a model read it correctly; locked-human-field, currency membership and complete document-role gates still need implementation.
+Sources of truth: [vision](Unloop_Vision.md), [architecture](Architecture.md), [build plan](BUILD_PLAN.md), [A1 contract](docs/agents/Receipt_Extraction_Agent.md), [policy](docs/policy/Synthetic_T&E_Policy.md), [Gmail design](docs/integrations/GMAIL.md). The user-requested FastAPI replacement is recorded in architecture/iteration evidence; the build plan is preserved unchanged.
 
-## Service setup and honest status
+[Historical audit](docs/product/CURRENT_STATE_AND_EXECUTION_PLAN.md), [iteration log](docs/product/PRODUCT_ITERATION_LOG.md), [delivery workflow](docs/product/DELIVERY_WORKFLOW.md), [supporting docs](docs/README.md), [archive](archive/README.md).
 
-| Service | Current evidence | Next proof |
-|---|---|---|
-| Supabase PostgreSQL | Selected for storage; no connection demonstrated in this repository | Migrations, persistence and cross-session access tests in Phase 1 |
-| Google/Gmail | User-confirmed existing GCP setup for aban.hackathon@gmail.com; configured reference implementation in separate hackathon app | Python callback/token lifecycle and real attachment bytes; then Railway callback/scan |
-| OpenAI | Selected runtime; no model run in this scaffold | Pin actual API model identifier and run/evaluate A1 in Phase 2 |
-| Galileo | Existing project-specific diagnostic/eval choice | Trace integration, minimization and failure handling from first live AI run |
-| Historical FX | Frankfurter/ECB plus Open Exchange Rates fallback selected | Real primary/fallback adapters and exact-date behaviour in Phase 2 |
-| Railway | Selected host; separate hackathon deployment does not validate this app | Hosted web/worker journey and OAuth callback |
+## Next gate
 
-The `.env.example` and `doctor` script are historical scaffold setup aids, not a complete revised configuration contract. They still contain Supabase Auth-related variables from the earlier design; those do not require restoring employee/manager login. Running `uv run python -m unloop.doctor` reports inherited variable presence only and attempts no connections. Update configuration adapters/templates with actual Phase 1 implementation rather than claiming they are already wired.
-
-The [Gmail design](docs/integrations/GMAIL.md) specifies future server-only OAuth client, callback and token-key configuration, scan permissions and production ownership gates. Never copy secrets into this repository. Exact callbacks must match the Python/Railway deployment; the hackathon callback is not assumed compatible.
-
-## Next action
-
-Begin revised Phase 1: isolated demo sessions, top persona toggle, confirmed chat-created reports and durable shared evidence intake. [Build plan](BUILD_PLAN.md) records phase gates. [ITER-002](docs/product/PRODUCT_ITERATION_LOG.md#iter-002--workflow-reconciliation-and-document-organization) records the 7 October docs reconciliation; no app implementation or live integrations are completed by that cycle.
+Verify the same migration/session/confirmed-report/reopen journey on securely configured non-production Supabase PostgreSQL, and publish/check the feature branch CI when Git delivery is authorized. Phase 1B is the next implementation increment after 1A gates are satisfied; it has not been started here.

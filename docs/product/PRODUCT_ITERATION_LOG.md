@@ -5,7 +5,7 @@
 Created: 28 September 2026  
 Owner: Abhinav  
 Updated: 7 October 2026  
-Status: ITER-001 historical scaffold validation retained; ITER-002 documents reconciled; ITER-003 publishing baseline; revised Phase 1 next
+Status: ITER-004 Phase 1A local implementation validated; Supabase/provider and Git publication gates pending
 
 ## Purpose
 
@@ -45,7 +45,8 @@ The first cycle establishes the runnable foundation and labelled cases before li
 |---|---|---|---|---|
 | [ITER-001](#iter-001--runnable-foundation-and-meal-fixtures) | Phase 0 / make the first slice buildable and testable | Closed | Keep scaffold; its original auth next-action is superseded by ITER-002 | [Validation record](../validation/ITER-001_VALIDATION.md) |
 | [ITER-002](#iter-002--workflow-reconciliation-and-document-organization) | Reconcile agreed workflow and organize docs | Closed | Revised persona/Gmail/partial-approval plan; no app feature implementation | [Docs validation](../validation/DOCS_UPDATE_VALIDATION.md) |
-| [ITER-003](#iter-003--tested-baseline-and-phased-github-delivery) | Publish tested baseline and establish delivery cadence | Validating | Build/test/commit/push/check CI per increment | [Delivery workflow](DELIVERY_WORKFLOW.md) |
+| [ITER-003](#iter-003--tested-baseline-and-phased-github-delivery) | Publish tested baseline and establish delivery cadence | Validating | Local baseline `5fa19ba`; publication/CI pending | [Delivery workflow](DELIVERY_WORKFLOW.md) |
+| [ITER-004](#iter-004--confirmed-reports-in-isolated-demo-sessions) | Phase 1A / confirmed private reports | Closed (local); Supabase gate pending | Keep deterministic FastAPI/PostgreSQL slice | [Phase 1A validation](../validation/PHASE_1A_VALIDATION.md) |
 
 Suggested statuses: Planned, Building, Validating, Closed, Blocked. A closed cycle records a decision; it does not necessarily mean the attempted change succeeded.
 
@@ -171,3 +172,25 @@ Phase 0 should establish the runnable scaffold and labelled Meal cases. Validate
 **Decision:** pending local validation and CI.
 
 **Next increment:** Phase 1A persona sessions and confirmed reports, with live PostgreSQL configuration needed before its persistence gate can pass.
+
+### ITER-004 — Confirmed reports in isolated demo sessions
+
+**Date / phase:** 7 October 2026 / Phase 1A
+**Status:** Closed (local implementation); Supabase gate pending
+**Previous cycle:** ITER-003
+
+**Frame:** The employee cannot create or reopen a report. The synthetic workspace has no authoritative ownership or persona boundary.
+
+**Hypothesis:** deterministic Astra intake, explicit header confirmation and server-owned persona sessions backed by PostgreSQL deliver a useful first report workflow without model cost or later-phase dependencies.
+
+**Success criteria:** valid confirmed reports survive re-fetch and app restart; unconfirmed proposals create no report; dates include an explicit year; a second session and manager persona cannot access drafts; mutations require origin and session-bound CSRF protection; employee identity/grade remain server-seeded; baseline and new PostgreSQL/API/browser checks pass.
+
+**Implementation decisions:** user explicitly requested FastAPI/Python instead of Flask. Preserve health/fixture/schema/preview capabilities while migrating the API/test harness. One implementation agent on `codex/phase-1a`, no worktree. Scope excludes uploads, Gmail, extraction, policy, FX, submission, approval, Teams and RAG.
+
+**Baseline:** local scaffold checks passed (17 backend, 2 browser tests, Ruff, fixture integrity, worker check, build). Baseline commit `5fa19ba` establishes the previously uncommitted source. No Supabase connection is configured; disposable PostgreSQL validation is distinct from a Supabase integration claim.
+
+**Validation:** 69 backend tests and seven browser tests passed against real local PostgreSQL, including isolation, spoofing/CSRF, explicit confirmation, concurrent retry, reload and actual Uvicorn-process restart. Ruff/build/24-case fixture/worker checks passed; desktop/mobile screenshots inspected. [Validation record](../validation/PHASE_1A_VALIDATION.md) distinguishes local checks from external gates.
+
+**Improve — Keep:** bounded deterministic intake delivers the first real persisted workflow without model dependencies. The user-requested FastAPI migration preserves Phase 0 checks; synthetic Meal examples remain separate. No Phase 1B/1C functionality was implemented.
+
+**Limitations / next gate:** Supabase connectivity is unverified because no connection was configured. Hosted CI/publication has not run. Configure/verify these gates before treating 1A as fully signed off or starting 1B. The local implementation cycle closes with these explicit delivery/provider limitations, not a complete Phase 1 claim.

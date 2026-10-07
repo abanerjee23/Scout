@@ -3,10 +3,23 @@ name = "unloop"
 version = "0.1.0"
 description = "Unloop expense preparation proof of concept"
 requires-python = ">=3.12,<3.14"
-dependencies = ["flask>=3.1,<4", "pydantic>=2.10,<3"]
+dependencies = [
+    "alembic>=1.15,<2",
+    "fastapi>=0.115,<1",
+    "itsdangerous>=2.2,<3",
+    "psycopg[binary]>=3.2,<4",
+    "pydantic>=2.10,<3",
+    "sqlalchemy>=2.0,<3",
+    "uvicorn>=0.34,<1",
+]
 
 [dependency-groups]
-dev = ["pytest>=8,<10", "ruff>=0.11,<1", "pillow>=11,<13"]
+dev = [
+    "pytest>=8,<10",
+    "ruff>=0.11,<1",
+    "pillow>=11,<13",
+    "httpx>=0.28,<1",
+]
 
 [build-system]
 requires = ["hatchling"]
