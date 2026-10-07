@@ -30,6 +30,8 @@ class DiagnosticFailure(Exception):
 
 
 def safe_error_code(error):
+    if getattr(error, "schema_code", None) == "isolated_schema_selection_failed":
+        return "isolated_schema_selection_failed"
     tls_code = getattr(error, "tls_code", None)
     if tls_code in {
         "client_tls_not_active",

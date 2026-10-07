@@ -7,8 +7,7 @@ from uuid import uuid4
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import text
-from sqlalchemy.engine import make_url
-from unloop.database import postgres_engine
+from unloop.database import SchemaSelectionError, postgres_engine
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -61,17 +60,14 @@ def isolated_database(test_url: str, *, require_tls=False, phase=None):
             with phase("schema_creation"):
                 connection.execute(text(f'CREATE SCHEMA "{schema}"'))
         created = True
-        url = make_url(test_url)
-        scoped = url.update_query_dict(
-            {"options": f"-csearch_path={schema} -cstatement_timeout=10000 -clock_timeout=5000"}
-        ).render_as_string(hide_password=False)
-        engine = postgres_engine(scoped)
+        scoped = test_url
+        engine = postgres_engine(scoped, schema=schema)
         # Verify the actual selected schema before any Alembic operation. A pooler
         # that drops startup options must fail instead of migrating public.
         with phase("scoped_connection"), engine.connect() as connection:
             with phase("scoped_search_path"):
                 if connection.scalar(text("SELECT current_schema()")) != schema:
-                    raise RuntimeError("Isolated schema selection failed")
+                    raise SchemaSelectionError("Isolated schema selection failed")
             with phase("scoped_tls"):
                 if require_tls:
                     require_client_tls(connection)

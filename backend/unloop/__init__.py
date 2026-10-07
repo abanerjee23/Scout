@@ -14,7 +14,11 @@ from unloop.database import Settings, postgres_engine
 
 def create_app(test_config: dict | None = None) -> FastAPI:
     settings = Settings.load(test_config)
-    engine = postgres_engine(settings.database_url) if settings.database_url else None
+    engine = (
+        postgres_engine(settings.database_url, schema=settings.database_schema)
+        if settings.database_url
+        else None
+    )
 
     @asynccontextmanager
     async def lifespan(_app):

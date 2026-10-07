@@ -155,7 +155,7 @@ def test_ignored_search_path_cannot_migrate_default_schema(postgres, monkeypatch
     calls = 0
     migrated = False
 
-    def ignore_scoped_options(url):
+    def ignore_scoped_options(url, **kwargs):
         nonlocal calls
         calls += 1
         # Simulate a session pooler ignoring the newly requested startup options;
@@ -190,3 +190,43 @@ def test_actual_api_start_failure_discards_child_logs(capsys):
     assert error.value.code == "api_start_failed"
     output = capsys.readouterr()
     assert not output.out and not output.err
+
+
+def test_explicit_schema_survives_reuse_and_reconnect_without_startup_options(postgres):
+    # No options are sent: this also models a pooler dropping startup parameters.
+    with isolated_database(postgres[0]) as (url, engine):
+        assert "options" not in make_url(url).query
+        with engine.connect() as connection:
+            expected = connection.scalar(text("SELECT current_schema()"))
+        for reconnect in (False, True):
+            if reconnect:
+                engine.dispose()
+            with engine.connect() as connection:
+                assert connection.scalar(text("SELECT current_schema()")) == expected
+                assert connection.scalar(text("SHOW search_path")) == expected
+                assert connection.scalar(text("SHOW statement_timeout")) == "10s"
+                assert connection.scalar(text("SHOW lock_timeout")) == "5s"
+                assert (
+                    connection.scalar(text("SELECT version_num FROM alembic_version"))
+                    == smoke.REVISION
+                )
+
+
+def test_missing_generated_schema_fails_before_application_queries(postgres):
+    from unloop.database import SchemaSelectionError, postgres_engine
+
+    engine = postgres_engine(postgres[0], schema="unloop_test_" + "0" * 32)
+    try:
+        with pytest.raises(SchemaSelectionError):
+            with engine.connect():
+                pytest.fail("Nonexistent schema must never fall back to public")
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.parametrize("schema", ["public", "unloop_test_abc", "public; DROP SCHEMA public"])
+def test_schema_configuration_is_bounded(schema):
+    from unloop.database import Settings
+
+    with pytest.raises(ValueError, match="Invalid isolated test schema"):
+        Settings.load({"UNLOOP_TEST_SCHEMA": schema})

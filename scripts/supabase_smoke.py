@@ -72,7 +72,7 @@ def validate_target(raw_url, *, local_test=False):
 
 
 @contextmanager
-def api_process(database_url, port):
+def api_process(database_url, port, *, schema=None):
     origin = f"http://127.0.0.1:{port}"
     # Do not forward the ambient environment/vault to the child. Its only DB URL
     # selects this invocation's schema; neither argv nor captured logs contain it.
@@ -95,6 +95,7 @@ def api_process(database_url, port):
         env={
             "PATH": os.environ.get("PATH", ""),
             "DATABASE_URL": database_url,
+            "UNLOOP_TEST_SCHEMA": schema or "",
             "APP_ORIGIN": origin,
             "SESSION_COOKIE_SECURE": "false",
         },
@@ -149,7 +150,7 @@ def run_smoke(database_url, *, live):
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", 0))
             port = probe.getsockname()[1]
-        with diagnostic_phase("http_start"), api_process(scoped_url, port) as origin:
+        with diagnostic_phase("http_start"), api_process(scoped_url, port, schema=schema) as origin:
             with (
                 diagnostic_phase("http_flow"),
                 httpx.Client(base_url=origin, timeout=10, trust_env=False) as client,
@@ -215,7 +216,10 @@ def run_smoke(database_url, *, live):
                 )
                 cookies = dict(client.cookies)
         # First Uvicorn process has exited. Reuse its DB-owned cookie in another process.
-        with diagnostic_phase("http_restart"), api_process(scoped_url, port) as origin:
+        with (
+            diagnostic_phase("http_restart"),
+            api_process(scoped_url, port, schema=schema) as origin,
+        ):
             with httpx.Client(
                 base_url=origin, cookies=cookies, timeout=10, trust_env=False
             ) as client:
