@@ -104,7 +104,7 @@ def test_real_spawned_export_process_reports_acceptance_without_private_metadata
         )
         monkeypatch.setattr(telemetry, "_observation_child", spawned_test_child)
         assert (
-            observe({"model": "gpt-6-luna", "outcome": "complete", "receipt": "private"}) == "sent"
+            observe({"model": "gpt-6.1-sol", "outcome": "complete", "receipt": "private"}) == "sent"
         )
         assert len(requests) == 1 and b"private" not in requests[0][2]
 
@@ -160,7 +160,9 @@ def test_actual_otlp_payload_omits_all_private_content_and_inherited_resources(
         assert (
             _observe(
                 {
-                    "model": "text-embedding-3-small" if operation == "embedding" else "gpt-6-luna",
+                    "model": (
+                        "text-embedding-3-small" if operation == "embedding" else "gpt-6.1-sol"
+                    ),
                     "outcome": "embedded" if operation == "embedding" else "complete",
                     "latencyMs": 15,
                     "inputTokens": 100,
@@ -225,8 +227,8 @@ def test_timeout_kills_child_and_only_sanitized_metadata_crosses_boundary(monkey
         "get_context",
         lambda _method: SimpleNamespace(Queue=lambda: queue, Process=Child),
     )
-    assert observe({"model": "gpt-6-luna", "receipt": "private"}) == "timeout"
-    assert captured["args"][0] == {"model": "gpt-6-luna"}
+    assert observe({"model": "gpt-6.1-sol", "receipt": "private"}) == "timeout"
+    assert captured["args"][0] == {"model": "gpt-6.1-sol"}
     assert captured["joins"] == [3, 1] and captured["killed"]
     monkeypatch.setenv("ARIZE_REGION", "private-invalid-region")
     assert observe({}) == "unavailable"
@@ -238,7 +240,7 @@ def test_exporter_rejection_is_not_reported_as_sent(monkeypatch):
 
     configure(monkeypatch)
     monkeypatch.setattr(OTLPSpanExporter, "export", lambda _self, _spans: SpanExportResult.FAILURE)
-    assert _observe({"model": "gpt-6-luna", "outcome": "model_timeout"}) == "unavailable"
+    assert _observe({"model": "gpt-6.1-sol", "outcome": "model_timeout"}) == "unavailable"
 
 
 def test_missing_pairs_and_reviews_remain_visible_failed_experiment_rows():
@@ -265,7 +267,7 @@ def test_citation_and_human_false_permission_failures_keep_original_scorer_seman
         "humanReview": {"fullyCorrect": True, "falsePermission": True},
         "diagnostics": {
             "receipt": "private",
-            "model": "gpt-6-luna",
+            "model": "gpt-6.1-sol",
             "policyVersion": "synthetic-meals-0.2:2026-01-01",
             "mode": "fullContext",
         },

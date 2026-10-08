@@ -39,8 +39,8 @@ TEST_LIMITS = A1Settings(
     50,
     20,
     Decimal("1"),
-    Decimal("0.1"),
-    Decimal("0.5"),
+    Decimal("2"),
+    Decimal("10"),
     24000,
     4000,
     25,
@@ -625,11 +625,12 @@ def test_async_sdk_receives_only_selected_bytes_and_tracing_disabled(monkeypatch
         == "synthetic-result"
     )
     assert captured["agent"].tools == []
-    assert captured["agent"].model.model == "gpt-6-luna"
+    assert captured["agent"].model.model == "gpt-6.1-sol"
     assert captured["kwargs"]["max_turns"] == 1
     assert captured["kwargs"]["run_config"].tracing_disabled
     assert not captured["kwargs"]["run_config"].trace_include_sensitive_data
     assert captured["agent"].model_settings.store is False
+    assert captured["agent"].model_settings.reasoning.effort == "medium"
     assert captured["input"][0]["content"][2]["image_url"].endswith("c3ludGhldGlj")
 
 
@@ -1303,8 +1304,8 @@ def test_human_confirmed_exclusion_restore_preserves_locked_facts(client, postgr
     "override",
     [
         {"A1_MAX_INPUT_TOKENS": "272001"},
-        {"A1_INPUT_USD_PER_MILLION": "0.01"},
-        {"A1_OUTPUT_USD_PER_MILLION": "0.49"},
+        {"A1_INPUT_USD_PER_MILLION": "1.99"},
+        {"A1_OUTPUT_USD_PER_MILLION": "9.99"},
     ],
 )
 def test_live_budget_rejects_underpriced_or_large_context_configuration(override):
@@ -1314,8 +1315,8 @@ def test_live_budget_rejects_underpriced_or_large_context_configuration(override
         "A1_MAX_CALLS": "100",
         "A1_MAX_SESSION_CALLS": "50",
         "A1_BUDGET_USD": "5",
-        "A1_INPUT_USD_PER_MILLION": "0.10",
-        "A1_OUTPUT_USD_PER_MILLION": "0.50",
+        "A1_INPUT_USD_PER_MILLION": "2.00",
+        "A1_OUTPUT_USD_PER_MILLION": "10.00",
     }
     assert A1Settings.load(values).input_tokens == 24000
     with pytest.raises(ValueError):

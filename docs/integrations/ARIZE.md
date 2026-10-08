@@ -1,6 +1,6 @@
 # Arize AX evaluations and observability
 
-Abhinav selected Arize AI on 8 October 2026. Unloop now uses Arize AX for runtime telemetry and synthetic evaluation experiments. The Galileo integration and dependencies are removed. Application facts, calculations and approvals remain code-owned. GPT-6.1 Sol migration is the next separate backlog item; this change retains the current application model.
+Abhinav selected Arize AI on 8 October 2026. Unloop now uses Arize AX for runtime telemetry and synthetic evaluation experiments. The Galileo integration and dependencies are removed. Application facts, calculations and approvals remain code-owned. A1/A3 now pin `gpt-6.1-sol` with explicit medium reasoning; account ingestion and live provider measurements remain separate steps.
 
 ## Runtime traces
 
