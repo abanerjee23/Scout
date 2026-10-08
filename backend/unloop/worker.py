@@ -168,7 +168,7 @@ def main():
     extractor, policy, fx = (
         AgentsExtractor(a1_settings),
         MealPolicy.load(os.environ),
-        HistoricalFx(os.environ.get("OXR_APP_ID")),
+        HistoricalFx.from_env(os.environ),
     )
     scan_process = None
 

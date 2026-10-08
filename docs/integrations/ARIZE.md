@@ -11,10 +11,10 @@ ARIZE_ENABLED=true
 ARIZE_API_KEY=<private server key>
 ARIZE_SPACE_ID=<space ID>
 ARIZE_PROJECT_NAME=unloop
-ARIZE_REGION=us-central-1a
+ARIZE_REGION=us
 ```
 
-Match the region to the selected space: us-central-1a, us-east-1b, eu-west-1a or ca-central-1a. Each region selects a fixed HTTPS Arize OTLP endpoint. The example configuration defaults tracing to disabled; keys alone do not activate it.
+Match the region to the account's Data Plane settings: `us` uses `https://otlp.arize.com/v1/traces` and the default US experiment API; `eu-west-1a` and `ca-central-1a` use their named regional hosts. The existing `us-central-1a` and `us-east-1b` settings remain supported for deployments that explicitly use those endpoints. Each setting selects a fixed HTTPS host. The example configuration defaults tracing to disabled; keys alone do not activate it. These US/EU/Canada hosts follow the [official region documentation](https://arize.com/docs/ax/security-and-settings/whitelisting).
 
 A1 extraction, A3 policy answers and embedding calls emit manually constructed OpenInference spans. Validated attributes include model/prompt/schema/policy versions where available, outcome, timing, token counts and configured-price cost estimates when supplied. Embedding traces include usage but do not invent a cost estimate. Receipts, extracted merchant/amount facts, questions, conversations, identifiers, embeddings, credentials and exception bodies are omitted. Original OpenAI SDK tracing stays disabled.
 
