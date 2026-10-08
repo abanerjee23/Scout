@@ -6,7 +6,7 @@ Updated: 8 October 2026. Owner: Abhinav.
 
 Status: executable category schema v0.2 with v0.1 Meal compatibility; bounded SDK/worker, evidence validation and human precedence implemented and tested. Actual model quality remains unmeasured.
 
-Current implementation: [contracts.py](../../backend/unloop/contracts.py) retains the original Meal schema and adds the category schema; [extraction.py](../../backend/unloop/extraction.py) constructs a no-tool OpenAI Agents SDK call, and [expense_worker.py](../../backend/unloop/expense_worker.py) validates evidence, supported currencies, selected document roles and stale revisions before saving. Human locks are supplied as context and enforced by code on merge. The current model is gpt-6-luna with prompt `categories-a1-2`; owner-selected gpt-6.1-sol migration/cost controls are next. Paid extraction remains disabled locally. [Current ledger](../product/BUILD_STATUS.md) separates deterministic checks from live quality; [ITER-001](../validation/ITER-001_VALIDATION.md) retains the original scaffold evidence.
+Current implementation: [contracts.py](../../backend/unloop/contracts.py) retains the original Meal schema and adds the category schema; [extraction.py](../../backend/unloop/extraction.py) constructs a no-tool OpenAI Agents SDK call, and [expense_worker.py](../../backend/unloop/expense_worker.py) validates evidence, supported currencies, selected document roles and stale revisions before saving. Human locks are supplied as context and enforced by code on merge. A1/A3 pin `gpt-6.1-sol` with supported `medium` reasoning effort, prompt `categories-a1-2`, a 200,000-input cap and $2/M input/$10/M output reservation floors. Paid extraction remains disabled locally. [Current ledger](../product/BUILD_STATUS.md) separates deterministic checks from live quality; [ITER-001](../validation/ITER-001_VALIDATION.md) retains the original scaffold evidence.
 
 [Product vision](../../Unloop_Vision.md) defines the product behaviour. [Architecture.md](../../Architecture.md) defines A1's system boundary. [Synthetic_T&E_Policy.md](../policy/Synthetic_T&E_Policy.md) supplies the owner-reviewed governing clauses that consume A1's evidence-backed Air output. This document makes the Receipt Extraction Agent buildable and testable.
 
@@ -255,7 +255,7 @@ Measure:
 | Schema-valid result rate | Whether code can use the output reliably |
 | Latency, tokens and cost per expense | Whether the workflow is viable |
 
-The frozen receipt gates retain 95% required-field accuracy, 90% readable reviewability, required safe pauses and zero accepted critical errors; the paired policy gates are recorded separately. No live baseline has passed. Abhinav selected GPT-6.1 Sol on 8 October; migrate its settings and cost controls next, then measure quality, latency and spend against the preserved Luna baseline without retuning held-out labels.
+The frozen receipt gates retain 95% required-field accuracy, 90% readable reviewability, required safe pauses and zero accepted critical errors; the paired policy gates are recorded separately. No live baseline has passed. GPT-6.1 Sol is now pinned with medium reasoning and conservative $2/M input/$10/M output reservation floors. Measure quality, latency and spend before drawing a model-comparison conclusion; frozen held-out labels remain untouched.
 
 ## 12. Implemented decisions and remaining evidence
 

@@ -384,3 +384,13 @@ The Docker build exposed source-map-js 1.2.1 in the frontend toolchain. The lock
 **Documentation and verification:** reconcile the root vision/README/architecture, A1 category/SDK contract, migration/Gmail/deployment guides, case study, ledger and navigation. Record the active reviewed policy, Arize AX integration, current Luna code and selected next Sol migration. Label dated audits/validation records as historical and retain their measurements. Relative links/heading anchors, ten archived-original hashes, original BUILD_PLAN, frozen labels and release gates pass preservation checks. This checkpoint changes documentation only; the preceding exact implementation `50ab8b0` has green 382-backend/20-browser CI. The final source/docs commit and merge checks are authoritative in GitHub. Paid calls, account setup and deployment remain separate pending steps.
 
 **Next:** [backlog step 4](BUILD_STATUS.md#live-pending-backlog), GPT-6.1 Sol settings and cost controls, after this checkpoint.
+
+### ITER-015 — GPT-6.1 Sol configuration and cost guardrails
+
+**Date / scope:** 8 October 2026 / backlog item 4.
+
+**Hypothesis and acceptance:** pinning the owner-selected `gpt-6.1-sol` for the bounded A1 receipt and A3 policy workloads, with explicit medium reasoning and model-specific reservation floors, makes the intended quality/cost tradeoff inspectable before any spend. Acceptance requires no change to workflow authority, held-out labels, provider activation or observability privacy boundaries; rejected underpriced configurations; and SDK settings that prove the model and reasoning effort.
+
+**Implementation and evidence:** A1/A3 share the exact model constant and send `medium` reasoning, which GPT-6.1 Sol supports. The existing no-tool, one-turn, 4,000-token-output and 25-second-call bounds remain. Standard-tier $2/M input and $10/M output floors replace the prior Luna floors; the existing 200,000-input cap remains below GPT-6.1 Sol's 272,000-token large-context price boundary. Example configuration is disabled. Focused lint plus 101 PostgreSQL/SDK/policy/Arize checks pass with no live provider call.
+
+**Decision and remaining evidence:** keep the Sol configuration. This establishes a conservative reservation guard, not account availability, billed cost, latency or quality. The next item is private provider credentials; budget approval and live evaluation remain separate gates. Frozen release labels/gates retain their Luna baseline for future comparison and are not rewritten as Sol evidence.

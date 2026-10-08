@@ -28,15 +28,15 @@ Source integration checkpoint: [PR #5](https://github.com/abanerjee23/UnLoop/pul
 
 ## Live pending backlog
 
-Work through one item at a time. On 8 October, Abhinav selected Arize AI for evaluations and observability and GPT-6.1 Sol for the application. The Arize AX integration is implemented locally; the current gpt-6-luna code remains until the next model-migration item is completed. The selected model's pricing must be reflected in budget reservations before paid activation.
+Work through one item at a time. On 8 October, Abhinav selected Arize AI for evaluations and observability and GPT-6.1 Sol for the application. Arize AX and the GPT-6.1 Sol configuration are implemented locally. A1/A3 explicitly use medium reasoning; standard-tier reservation floors are $2/M input and $10/M output. Paid activation remains gated on private credentials and budget approval.
 
 Before step 4: owner-requested GitHub source consolidation and current-documentation reconciliation are delivered through PR #5. Original BUILD_PLAN, dated audit/iteration evidence, fixture labels and private runtime data remain preserved.
 
 1. [x] Review the complete synthetic expense policy, including rounding.
 2. [x] Activate the reviewed policy locally. Authenticated HTTP confirms `synthetic-te-0.3:2026-10-01`, all 22 governing clauses, Ground Transport active and ROUND_HALF_UP_LINE. Readiness confirms 0008; five focused rounding/cap/Ground Transport checks pass with zero skips. Paid model calls remain disabled. Provider quality and hosted activation are separate gates.
 3. [x] Migrate evaluations and observability to Arize AI locally — Galileo removed, bounded content-free traces and scored synthetic experiment import implemented. Full native backend regression: 381 passed/zero skips before the additional spawn test; latest exact published CI: 382 backend/20 browser passed, zero test skips. Focused OTLP/SDK/privacy/gate tests and Linux packaged web/worker/restart checks pass. Account ingestion remains in steps 5/7. [Integration](../integrations/ARIZE.md), [validation](../validation/ARIZE_LOCAL.md).
-4. [ ] Switch the application model to GPT-6.1 Sol and update cost controls — next item.
-5. [ ] Configure private provider credentials.
+4. [x] Switch the application model to GPT-6.1 Sol and update cost controls — `gpt-6.1-sol` now pins A1/A3, with explicit medium reasoning, a 200,000-token input cap and $2/M input/$10/M output standard-tier price floors. Paid calls remain disabled; no credentials or provider request were used. Local/CI validation is recorded with this increment.
+5. [ ] Configure private provider credentials — next item.
 6. [ ] Confirm the paid-test budget.
 7. [ ] Run live extraction, FX, evaluations and tracing.
 8. [ ] Deploy Railway web/worker.

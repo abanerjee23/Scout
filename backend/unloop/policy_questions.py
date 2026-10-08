@@ -17,7 +17,7 @@ from unloop.api import ApiProblem, Db, MutationOwner, Owner
 from unloop.contracts import StrictModel
 from unloop.evidence import own_report
 from unloop.expenses import own_expense
-from unloop.extraction import MODEL, ExtractionFailure
+from unloop.extraction import MODEL, REASONING_EFFORT, ExtractionFailure
 from unloop.models import DemoSession, Expense, MealPolicyVersion, PolicyQuestion
 from unloop.observability import observe
 from unloop.policy_index import (
@@ -71,6 +71,7 @@ class AgentsPolicyAnswerer:
     async def run(self, payload):
         from agents import Agent, ModelSettings, OpenAIResponsesModel, RunConfig, Runner
         from openai import AsyncOpenAI
+        from openai.types.shared.reasoning import Reasoning
 
         async with AsyncOpenAI(
             api_key=self.settings.key,
@@ -86,6 +87,7 @@ class AgentsPolicyAnswerer:
                 tools=[],
                 model_settings=ModelSettings(
                     max_tokens=self.settings.output_tokens,
+                    reasoning=Reasoning(effort=REASONING_EFFORT),
                     store=False,
                     timeout=self.settings.timeout,
                 ),
