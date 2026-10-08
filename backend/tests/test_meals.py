@@ -353,7 +353,16 @@ def test_budget_reservations_survive_failure_and_prevent_extra_calls(client, pos
 
 
 @pytest.mark.parametrize("returned", ["2026-10-02", "2026-10-03"])
-def test_ecb_exact_date_guard_and_fallback_snapshot(monkeypatch, returned):
+@pytest.mark.parametrize(
+    "configuration",
+    [
+        {"OPEN_EXCHANGE_RATES_APP_ID": "synthetic-not-live"},
+        {"OXR_APP_ID": "synthetic-not-live"},
+        {"OPEN_EXCHANGE_RATES_APP_ID": "synthetic-not-live", "OXR_APP_ID": "old-unused"},
+        {"OPEN_EXCHANGE_RATES_APP_ID": "", "OXR_APP_ID": "synthetic-not-live"},
+    ],
+)
+def test_ecb_exact_date_guard_and_fallback_snapshot(monkeypatch, returned, configuration):
     from datetime import date
 
     adapter = HistoricalFx()
@@ -367,7 +376,7 @@ def test_ecb_exact_date_guard_and_fallback_snapshot(monkeypatch, returned):
             adapter.fetch("EUR", date(2026, 10, 3))
     else:
         assert adapter.fetch("EUR", date(2026, 10, 3))["rate"] == "0.85033"
-    adapter.oxr_key = "synthetic-not-live"
+    adapter = HistoricalFx.from_env(configuration)
     calls = []
 
     def request(url, params):
@@ -385,6 +394,7 @@ def test_ecb_exact_date_guard_and_fallback_snapshot(monkeypatch, returned):
         "1.2"
     )
     assert "base" not in calls[1][1] and "symbols" not in calls[1][1]
+    assert calls[1][1]["app_id"] == "synthetic-not-live"
 
 
 def test_cross_report_conflict_requires_explicit_selection(client, postgres, meal):

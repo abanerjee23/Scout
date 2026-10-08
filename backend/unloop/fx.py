@@ -39,6 +39,11 @@ class HistoricalFx:
     def __init__(self, oxr_key=None):
         self.oxr_key = oxr_key
 
+    @classmethod
+    def from_env(cls, values):
+        # Match the private example/doctor; keep existing deployments compatible.
+        return cls(values.get("OPEN_EXCHANGE_RATES_APP_ID") or values.get("OXR_APP_ID"))
+
     def request(self, url, params=None):
         deadline = monotonic() + 10
         try:

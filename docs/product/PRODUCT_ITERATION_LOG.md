@@ -394,3 +394,11 @@ The Docker build exposed source-map-js 1.2.1 in the frontend toolchain. The lock
 **Implementation and evidence:** A1/A3 share the exact model constant and send `medium` reasoning, which GPT-6.1 Sol supports. The existing no-tool, one-turn, 4,000-token-output and 25-second-call bounds remain. Standard-tier $2/M input and $10/M output floors replace the prior Luna floors; the existing 200,000-input cap remains below GPT-6.1 Sol's 272,000-token large-context price boundary. Example configuration is disabled. Focused lint plus 101 PostgreSQL/SDK/policy/Arize checks pass with no live provider call.
 
 **Decision and remaining evidence:** keep the Sol configuration. This establishes a conservative reservation guard, not account availability, billed cost, latency or quality. The next item is private provider credentials; budget approval and live evaluation remain separate gates. Frozen release labels/gates retain their Luna baseline for future comparison and are not rewritten as Sol evidence.
+
+### ITER-016 — Local provider setup and FX credential wiring
+
+**Date / scope:** 8 October 2026 / backlog item 5, in progress.
+
+**Problem and change:** the private example and setup doctor named the FX key `OPEN_EXCHANGE_RATES_APP_ID`, while the worker read only `OXR_APP_ID`. The worker now uses the canonical name and preserves the legacy alias for existing deployments. No key values are displayed, committed or sent to a provider during setup verification.
+
+**Evidence and remaining gate:** lint and eight synthetic exact-date ECB/OXR fallback checks pass, covering canonical, legacy, precedence and empty canonical settings. Presence-only verification confirms the three provider keys locally. Arize space/project/region configuration remains pending. Paid extraction and Arize export remain disabled; budget fields are reserved for step 6. Authentication, historical-data access and account ingestion remain live-validation gates.
