@@ -38,7 +38,9 @@ TEST_LIMITS = A1Settings(
     "synthetic-not-a-live-key",
     50,
     20,
-    Decimal("1"),
+    # This shared, explicitly fake adapter drives up to 50 browser-test calls;
+    # its reservation envelope must not exhaust before the fixture's call ceiling.
+    Decimal("5"),
     Decimal("2"),
     Decimal("10"),
     24000,
