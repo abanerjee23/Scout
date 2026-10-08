@@ -11,11 +11,19 @@ from pydantic import Field, model_validator
 from sqlalchemy import select
 
 from unloop.api import ApiProblem, Db, MutationOwner, Owner
-from unloop.category_fields import ALL_FIELDS, CATEGORY_FIELDS, active_fields, cabin, required
+from unloop.category_fields import (
+    ALL_FIELDS,
+    CATEGORY_FIELDS,
+    active_fields,
+    cabin,
+    normalize_locations,
+    required,
+)
 from unloop.contracts import StrictModel
 from unloop.evidence import own_report
 from unloop.fx import currency
 from unloop.models import (
+    ApprovedLine,
     Document,
     EvidenceLink,
     Expense,
@@ -48,10 +56,18 @@ class ExpenseCommand(StrictModel):
     facts: dict[str, str | None] = Field(default_factory=dict)
     confirmed: bool = False
     excluded: bool = False
+    claimLimitGbp: str | None = Field(default=None, max_length=12)
 
     @model_validator(mode="after")
     def validate_facts(self):
         check_facts(self.facts)
+        if self.claimLimitGbp is not None and (
+            not re.fullmatch(r"[0-9]{1,9}(?:\.[0-9]{1,2})?", self.claimLimitGbp)
+            or Decimal(self.claimLimitGbp) <= 0
+        ):
+            raise ValueError(
+                "A reduced GBP claim must be a positive amount with at most two decimals"
+            )
         return self
 
 
@@ -121,6 +137,17 @@ def own_expense(db, owner, id, *, lock=False):
     return item
 
 
+def guard_editable(db, item):
+    if item.state == "approved" or db.scalar(
+        select(ApprovedLine.id).where(ApprovedLine.expense_id == item.id)
+    ):
+        raise ApiProblem(
+            409,
+            "approved_immutable",
+            "Approved facts and amounts are immutable. This receipt cannot be claimed again.",
+        )
+
+
 def receipt_eligible(db, item):
     decision = item.provenance.get("receiptEligibility")
     if decision is not None:
@@ -185,6 +212,8 @@ def refresh_conflicts(db, owner_id, slots):
         members = [row for row in rows if meal_slot(row) == slot]
         candidates = [row for row in members if row.state != "excluded" and ready_facts(db, row)]
         for row in members:
+            if row.state == "approved":
+                continue
             if row in candidates and len(candidates) > 1:
                 if row.state != "conflict":
                     row.provenance = {
@@ -343,6 +372,7 @@ def view(db, item):
         "facts": {
             key: value for key, value in item.facts.items() if key in active_fields(item.facts)
         },
+        "claimLimitGbp": item.provenance.get("claimLimitGbp"),
         "supportingDocumentIds": item.provenance.get("supportingDocumentIds", []),
         "lockedFields": item.locks,
         "provenance": item.provenance,
@@ -448,9 +478,10 @@ def read_expense(id: UUID, db: Db, owner: Owner):
 @router.patch("/expenses/{id}")
 def edit_expense(id: UUID, body: ExpenseCommand, db: Db, owner: MutationOwner):
     item = own_expense(db, owner, id, lock=True)
+    guard_editable(db, item)
     if body.version != item.version:
         raise ApiProblem(409, "stale_revision", "This expense changed. Reload before correcting.")
-    facts = {**item.facts, **body.facts}
+    facts = normalize_locations({**item.facts, **body.facts})
     category_changed = "category" in body.facts and facts.get("category") != item.facts.get(
         "category"
     )
@@ -462,9 +493,20 @@ def edit_expense(id: UUID, body: ExpenseCommand, db: Db, owner: MutationOwner):
         raise ApiProblem(
             422, "invalid_facts", "Review receipt date, amount, currency and VAT."
         ) from None
+    claim_limit = item.provenance.get("claimLimitGbp")
+    if "claimLimitGbp" in body.model_fields_set:
+        claim_limit = body.claimLimitGbp
+    if facts.get("category") != "meals":
+        if body.claimLimitGbp is not None:
+            raise ApiProblem(
+                422, "meal_claim_only", "Voluntary claim reduction is supported for Meals."
+            )
+        claim_limit = None
+    limit_changed = claim_limit != item.provenance.get("claimLimitGbp")
     changed = {key for key in body.facts if facts.get(key) != item.facts.get(key)}
     if (
         not changed
+        and not limit_changed
         and set(body.facts).issubset(item.locks)
         and body.confirmed == item.confirmed
         and (item.state == "excluded") == body.excluded
@@ -489,6 +531,7 @@ def edit_expense(id: UUID, body: ExpenseCommand, db: Db, owner: MutationOwner):
             for key in body.facts
         },
     }
+    item.provenance = {**item.provenance, "claimLimitGbp": claim_limit}
     item.confirmed = confirmed
     if category_changed:
         item.provenance = {**item.provenance, "supportingDocumentIds": [], "factEvidence": {}}
@@ -509,12 +552,13 @@ def edit_expense(id: UUID, body: ExpenseCommand, db: Db, owner: MutationOwner):
                 and not (issue["field"] == "classification" and "category" in body.facts)
             )
         ]
-    if changed & FINANCIAL or body.excluded or not confirmed:
+    if changed & FINANCIAL or limit_changed or body.excluded or not confirmed:
         item.calculation = None
     reuse = (
         previous
         and not body.excluded
         and not changed & FINANCIAL
+        and not limit_changed
         and confirmed
         and ready_facts(db, item)
     )
@@ -537,6 +581,7 @@ def edit_expense(id: UUID, body: ExpenseCommand, db: Db, owner: MutationOwner):
 @router.post("/expenses/{id}/recheck")
 def recheck_expense(id: UUID, body: VersionCommand, db: Db, owner: MutationOwner):
     item = own_expense(db, owner, id, lock=True)
+    guard_editable(db, item)
     if body.version != item.version:
         raise ApiProblem(409, "stale_revision", "Reload the saved expense first.")
     if item.state == "excluded":
@@ -552,6 +597,7 @@ def recheck_expense(id: UUID, body: VersionCommand, db: Db, owner: MutationOwner
 @router.post("/expenses/{id}/extract")
 def rerun_expense(id: UUID, body: VersionCommand, request: Request, db: Db, owner: MutationOwner):
     item = own_expense(db, owner, id, lock=True)
+    guard_editable(db, item)
     if body.version != item.version:
         raise ApiProblem(409, "stale_revision", "Reload the saved expense first.")
     if item.state == "excluded":
@@ -572,6 +618,7 @@ def rerun_expense(id: UUID, body: VersionCommand, request: Request, db: Db, owne
 @router.post("/expenses/{id}/choose")
 def choose_conflicting_receipt(id: UUID, body: VersionCommand, db: Db, owner: MutationOwner):
     item = own_expense(db, owner, id, lock=True)
+    guard_editable(db, item)
     if body.version != item.version or not all(
         item.facts.get(key) for key in ["receiptDate", "mealType"]
     ):
@@ -590,6 +637,12 @@ def choose_conflicting_receipt(id: UUID, body: VersionCommand, db: Db, owner: Mu
     peers = [
         other for other in others if meal_slot(other) == meal_slot(item) and ready_facts(db, other)
     ]
+    if any(other.state == "approved" for other in peers):
+        raise ApiProblem(
+            409,
+            "meal_already_approved",
+            "An approved receipt already occupies this Meal slot. Exclude this new candidate.",
+        )
     if not peers:
         raise ApiProblem(409, "not_selectable", "This Meal no longer has an eligible conflict.")
     for other in peers:
@@ -613,6 +666,7 @@ class SupportingEvidence(StrictModel):
 @router.put("/expenses/{id}/supporting-evidence")
 def supporting_evidence(id: UUID, body: SupportingEvidence, db: Db, owner: MutationOwner):
     item = own_expense(db, owner, id, lock=True)
+    guard_editable(db, item)
     if item.version != body.version:
         raise ApiProblem(409, "stale_revision", "Reload the saved expense first.")
     if item.facts.get("category") == "meals" and body.documentIds:

@@ -152,7 +152,7 @@ def test_hardening_upgrade_backfill_downgrade_reupgrade(postgres):
         ) as client:
             client.cookies.update(cookie)
             assert client.get(f"/api/reports/{report['id']}").json() == report
-            assert client.get("/api/readiness").json()["schemaVersion"] == "0007_phase4_policy"
+            assert client.get("/api/readiness").json()["schemaVersion"] == "0008_phase5_review"
 
 
 def test_migration_missing_employee_fails_atomically(postgres):

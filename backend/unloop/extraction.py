@@ -85,7 +85,7 @@ class A1Settings:
             if not (
                 1 <= result.max_calls <= 1000
                 and 1 <= result.session_calls <= 50
-                and 1 <= result.input_tokens <= 1000000
+                and 1 <= result.input_tokens <= 200000
                 and 512 <= result.output_tokens <= 8000
                 and 5 <= result.timeout <= 30
             ):
@@ -94,6 +94,10 @@ class A1Settings:
                 not value.is_finite() or value <= 0
                 for value in [result.budget_usd, result.input_price, result.output_price]
             ):
+                raise ValueError
+            # Verified standard-tier price floors for the pinned gpt-6-luna model.
+            # Keep input below the large-context pricing boundary; overrides may reserve more.
+            if result.input_price < Decimal("0.10") or result.output_price < Decimal("0.50"):
                 raise ValueError
             return result
         except (KeyError, ValueError, InvalidOperation):

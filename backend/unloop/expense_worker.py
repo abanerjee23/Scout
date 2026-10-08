@@ -10,7 +10,14 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from unloop.category_fields import CATEGORY_FIELDS, active_fields, cabin, required
+from unloop.category_fields import (
+    CATEGORY_FIELDS,
+    active_fields,
+    blocking_issue,
+    cabin,
+    normalize_locations,
+    required,
+)
 from unloop.contracts import ExtractionResult, parse_extraction, validate_context
 from unloop.expenses import (
     FIELDS,
@@ -61,7 +68,11 @@ def authority(db, claim, *, lock=False):
         raise ExtractionFailure("processing_failed")
     if owner is None or owner.expires_at <= datetime.now(UTC) or owner.active_persona != "employee":
         raise ExtractionFailure("processing_failed")
-    if item is None or item.revision_id != claim.revision_id or item.state == "excluded":
+    if (
+        item is None
+        or item.revision_id != claim.revision_id
+        or item.state in {"excluded", "approved"}
+    ):
         raise ExtractionFailure("processing_failed")
     return owner, item
 
@@ -104,7 +115,7 @@ def claim_expense(engine, *, now=None):
             owner.expires_at <= now
             or owner.active_persona != "employee"
             or item.revision_id != job.revision_id
-            or item.state == "excluded"
+            or item.state in {"excluded", "approved"}
             or job.attempts >= 3
         ):
             job.state, job.failure_code = (
@@ -112,7 +123,7 @@ def claim_expense(engine, *, now=None):
                 "stale_or_expired" if job.attempts < 3 else "attempts_exhausted",
             )
             job.lease_token = job.lease_until = None
-            if item.revision_id == job.revision_id and item.state != "excluded":
+            if item.revision_id == job.revision_id and item.state not in {"excluded", "approved"}:
                 item.state, item.failure_code = "failed", job.failure_code
             return None
         job.attempts += 1
@@ -169,11 +180,14 @@ def validated_output(output, claim, document, supporting=None):
         facts["mealType"] = None
     if facts.get("cabinClass"):
         facts["cabinClass"] = cabin(facts["cabinClass"])
+    facts = normalize_locations(facts)
     check_facts(facts)
     return output, facts
 
 
-def prepare_calculation(engine, facts, policy, adapter, *, owner_id=None, evidence=None):
+def prepare_calculation(
+    engine, facts, policy, adapter, *, owner_id=None, evidence=None, claim_limit=None
+):
     if (
         any(not facts.get(key) for key in required(facts))
         or facts.get("category") not in CATEGORY_FIELDS
@@ -197,7 +211,18 @@ def prepare_calculation(engine, facts, policy, adapter, *, owner_id=None, eviden
     if observation is None:
         observation = adapter.fetch(facts["transactionCurrency"], day)
     observation = validate_observation(observation, facts["transactionCurrency"], day)
-    return policy.calculate(facts, observation, grade=grade, evidence=evidence)
+    result = policy.calculate(facts, observation, grade=grade, evidence=evidence)
+    if result and facts["category"] == "meals" and claim_limit is not None:
+        limit = Decimal(claim_limit).quantize(Decimal("0.01"))
+        if limit < Decimal(result["claimGbp"]):
+            result = {
+                **result,
+                "claimGbp": str(limit),
+                "excessGbp": str(Decimal(result["fullGbp"]) - limit),
+                "employeeClaimLimitGbp": str(limit),
+                "outcome": "Reduced by employee",
+            }
+    return result
 
 
 def finish_expense(
@@ -231,7 +256,7 @@ def finish_expense(
             item.revision_id != claim.revision_id
             or owner.expires_at <= now
             or owner.active_persona != "employee"
-            or item.state == "excluded"
+            or item.state in {"excluded", "approved"}
         ):
             job.state, job.failure_code = "failed", "stale_or_expired"
         elif failure:
@@ -270,7 +295,7 @@ def finish_expense(
                 item.issues = [
                     issue.model_dump()
                     for issue in output.issues
-                    if issue.field != "vatAmount"
+                    if blocking_issue(issue.field, issue.reason, facts)
                     and (
                         ("category" if issue.field == "classification" else issue.field)
                         not in item.locks
@@ -425,6 +450,7 @@ def run_expense_once(engine, settings, extractor, policy, fx):
             ]
             facts, locks, confirmed = dict(item.facts), list(item.locks), item.confirmed
             evidence = item.provenance.get("factEvidence", {})
+            claim_limit = item.provenance.get("claimLimitGbp")
             eligible = receipt_eligible(db, item)
             retained_issues = [issue for issue in item.issues if issue["field"] != "vatAmount"]
             if len(retained_issues) != len(item.issues) and "vatAmount" not in locks:
@@ -462,7 +488,11 @@ def run_expense_once(engine, settings, extractor, policy, fx):
             retained_issues = [
                 issue.model_dump()
                 for issue in output.issues
-                if issue.field != "vatAmount"
+                if blocking_issue(
+                    issue.field,
+                    issue.reason,
+                    {**candidate, **{key: facts.get(key) for key in locks}},
+                )
                 and (
                     ("category" if issue.field == "classification" else issue.field) not in locks
                     or issue.reason in {"multipleReceipts", "unreadable"}
@@ -500,7 +530,13 @@ def run_expense_once(engine, settings, extractor, policy, fx):
         ):
             try:
                 calculation = prepare_calculation(
-                    engine, facts, policy, fx, owner_id=claim.session_id, evidence=evidence
+                    engine,
+                    facts,
+                    policy,
+                    fx,
+                    owner_id=claim.session_id,
+                    evidence=evidence,
+                    claim_limit=claim_limit,
                 )
             except FxPending:
                 pass

@@ -4,8 +4,8 @@ import os
 
 SERVICES = {
     "PostgreSQL (Phase 1A)": ["DATABASE_URL"],
-    "OpenAI (Phase 2)": ["OPENAI_API_KEY", "OPENAI_MODEL"],
-    "Galileo (Phase 2)": ["GALILEO_API_KEY", "GALILEO_PROJECT"],
+    "OpenAI (Phase 2)": ["OPENAI_API_KEY"],
+    "Galileo (Phase 2)": ["GALILEO_API_KEY", "GALILEO_PROJECT", "GALILEO_LOG_STREAM"],
     "FX fallback (Phase 2)": ["OPEN_EXCHANGE_RATES_APP_ID"],
 }
 

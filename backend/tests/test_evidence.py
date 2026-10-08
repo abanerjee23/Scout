@@ -376,7 +376,7 @@ def test_phase1b_fresh_upgrade_downgrade_reupgrade_alignment(postgres):
             command.upgrade(config, "head")
             command.check(config)
             assert (
-                db.scalar(text("SELECT version_num FROM alembic_version")) == "0007_phase4_policy"
+                db.scalar(text("SELECT version_num FROM alembic_version")) == "0008_phase5_review"
             )
 
 

@@ -1,6 +1,7 @@
 """FastAPI factory; no provider integration or automatic schema creation."""
 
 import asyncio
+import hashlib
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -24,6 +25,7 @@ from unloop.gmail_provider import GmailFailure, GmailSettings, GoogleAdapter
 from unloop.meal_policy import MealPolicy
 from unloop.policy_questions import router as policy_question_router
 from unloop.policy_registry import router as policy_router
+from unloop.review import router as review_router
 
 
 def create_app(test_config: dict | None = None) -> FastAPI:
@@ -47,6 +49,12 @@ def create_app(test_config: dict | None = None) -> FastAPI:
     values = {**os.environ, **(test_config or {})}
     app.state.a1_settings = A1Settings.load(values)
     app.state.policy_qa_enabled = values.get("POLICY_QA_ENABLED") == "true"
+    downstream = values.get("APPROVED_API_TOKEN")
+    if downstream and len(downstream) < 32:
+        raise ValueError("APPROVED_API_TOKEN requires a private value of at least 32 characters")
+    app.state.approved_api_hash = (
+        hashlib.sha256(downstream.encode()).hexdigest() if downstream else None
+    )
     app.state.meal_policy = MealPolicy.load(values)
     app.state.gmail_settings = GmailSettings.load(
         {**os.environ, **(test_config or {})}, settings.app_origin
@@ -205,6 +213,7 @@ def create_app(test_config: dict | None = None) -> FastAPI:
     app.include_router(expense_router)
     app.include_router(policy_router)
     app.include_router(policy_question_router)
+    app.include_router(review_router)
     static = os.environ.get("UNLOOP_STATIC_DIR")
     if static:
         root = Path(static).resolve()

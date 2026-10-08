@@ -843,7 +843,7 @@ def test_migration_populated_upgrade_downgrade_reupgrade_and_immutable_policy(po
             command.upgrade(config, "head")
             command.check(config)
             assert (
-                db.scalar(text("SELECT version_num FROM alembic_version")) == "0007_phase4_policy"
+                db.scalar(text("SELECT version_num FROM alembic_version")) == "0008_phase5_review"
             )
             db.execute(
                 text(
@@ -1335,3 +1335,74 @@ def test_human_confirmed_exclusion_restore_preserves_locked_facts(client, postgr
     assert restored["facts"]["merchant"] == "Reviewed Kitchen"
     assert run(postgres)
     assert client.get(f"/api/expenses/{item['id']}").json()["state"] == "review"
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"A1_MAX_INPUT_TOKENS": "272001"},
+        {"A1_INPUT_USD_PER_MILLION": "0.01"},
+        {"A1_OUTPUT_USD_PER_MILLION": "0.49"},
+    ],
+)
+def test_live_budget_rejects_underpriced_or_large_context_configuration(override):
+    values = {
+        "A1_ENABLED": "true",
+        "OPENAI_API_KEY": "synthetic",
+        "A1_MAX_CALLS": "100",
+        "A1_MAX_SESSION_CALLS": "50",
+        "A1_BUDGET_USD": "5",
+        "A1_INPUT_USD_PER_MILLION": "0.10",
+        "A1_OUTPUT_USD_PER_MILLION": "0.50",
+    }
+    assert A1Settings.load(values).input_tokens == 24000
+    with pytest.raises(ValueError):
+        A1Settings.load({**values, **override})
+
+
+def test_employee_reduction_preserves_full_total_and_survives_reread(client, postgres, meal):
+    client.app.state.a1_settings = TEST_LIMITS
+    _, headers, _, item = meal
+    assert run(postgres)
+    edited = client.patch(
+        f"/api/expenses/{item['id']}",
+        headers=headers,
+        json={"version": 1, "claimLimitGbp": "40.00", "confirmed": True},
+    ).json()
+    assert edited["calculation"] is None
+    assert run(postgres)
+    saved = client.get(f"/api/expenses/{item['id']}").json()
+    assert saved["facts"]["originalAmount"] == "62.00"
+    assert saved["calculation"]["fullGbp"] == "62.00"
+    assert saved["calculation"]["claimGbp"] == "40.00"
+    assert saved["calculation"]["excessGbp"] == "22.00"
+    assert (
+        client.post(
+            f"/api/expenses/{item['id']}/extract",
+            headers=headers,
+            json={"version": saved["version"]},
+        ).status_code
+        == 200
+    )
+    assert run(postgres)
+    saved = client.get(f"/api/expenses/{item['id']}").json()
+    assert saved["calculation"]["claimGbp"] == "40.00"
+    assert (
+        client.patch(
+            f"/api/expenses/{item['id']}",
+            headers=headers,
+            json={"version": saved["version"], "claimLimitGbp": "100.00", "confirmed": True},
+        ).status_code
+        == 200
+    )
+    assert run(postgres)
+    saved = client.get(f"/api/expenses/{item['id']}").json()
+    assert saved["calculation"]["claimGbp"] == "50.00"
+    assert (
+        client.patch(
+            f"/api/expenses/{item['id']}",
+            headers=headers,
+            json={"version": saved["version"], "claimLimitGbp": "0.001", "confirmed": True},
+        ).status_code
+        == 422
+    )

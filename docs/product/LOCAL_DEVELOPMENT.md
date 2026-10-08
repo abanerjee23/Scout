@@ -8,7 +8,7 @@ Unloop development now runs in `/Users/abhinavbanerjee/projects/vouch` on Abhina
 
 1. The Cloud implementation chat exported its final Phase 2 review fixes and stopped feature work. The existing **Finish Unloop build** Cloud follow-up is paused.
 2. Snapshot `0281d0edabce44d45dcf729531d2d3ed1f5d782f` was imported from a checksum-verified Git bundle. The original is retained on `codex/phase-2-cloud-handoff` and `codex/phase-2`.
-3. Active local branch `codex/local-phase-2` was aligned onto the published Phase 1C commit `06444e700ba6beb706b74115659938780f2513c7`. The equivalent packaging cherry-pick was dropped; Cloud review fixes were retained.
+3. Active local branch `codex/local-end-to-end` was aligned onto the published Phase 1C commit `06444e700ba6beb706b74115659938780f2513c7`. The equivalent packaging cherry-pick was dropped; Cloud review fixes were retained.
 4. The existing ignored `.env` and local PostgreSQL data were backed up under ignored `artifacts/local/local-migration/` before migrations. Existing `error.log` was retained. The local development database was upgraded through `0005_phase2_meals`; Alembic reports metadata alignment.
 5. Native macOS receipt validation was fixed: Darwin rejects the Linux address-space limit. Linux retains its 512 MiB cap; macOS retains the 10-second CPU limit, the parent's 15-second wall timeout and file/page/pixel limits. Native macOS does not provide the Linux memory cap. Use synthetic receipts for development; the Linux deployment boundary remains required for real-data readiness.
 
@@ -63,9 +63,9 @@ REQUIRE_POSTGRES_TESTS=true uv run --frozen --env-file .env -- npm test --prefix
 
 Tests use random isolated PostgreSQL schemas and real API/worker processes. A test skip is not persistence proof. Local fixture checks measure integrity, not model quality. Full local results belong in [the handoff validation record](../validation/PHASE_2_LOCAL_HANDOFF.md).
 
-## Continue from Phase 2 review
+## Continue with live release validation
 
-The next increment is final review of the preserved Phase 2 fixes, including the remaining unsupported-category override, legacy VAT-only recheck and confirmed exclusion/restore cases listed in the handoff. Resolve those findings and required checks before advancing to Phase 3. Keep one active implementation chat; no manual worktree is required.
+Phase 2 review findings were closed locally. Category fields, grounded policy assistance, explicit submitted snapshots, manager partial approval and the approved-release API now run on the active `codex/local-end-to-end` branch. Keep one active implementation chat; no manual worktree is required. Current readiness requires migration `0008_phase5_review`. A private `before-phase5.backup` was retained before upgrading the development database; metadata alignment passes. Submission history prevents downgrading 0008.
 
 Phase 1C still needs hosted runtime/Gmail acceptance. Phase 2 still needs actual model, FX and Galileo evidence, measured release quality/latency/cost, and approved policy/rounding/spend configuration. Local migration does not satisfy those gates. Keep the project-specific Galileo baseline while migrating; changing observability providers would be a separate product decision.
 
@@ -74,3 +74,6 @@ For each subsequent increment: record the user problem and acceptance criteria, 
 Policy assistance uses the pinned pgvector PostgreSQL 17 image in `compose.yaml`, preserving the existing volume. A pre-change database dump is retained privately under `artifacts/local/local-migration/before-pgvector.backup`. Application migrations create only their own tables; they do not enable extensions or change shared provider schemas. For local policy retrieval, enable `vector` in a dedicated local extension schema once; production extension setup is a separate verified provider step. Portable embedding storage is evaluated using pgvector's exact cosine operator, with source/version/hash filters and mandatory rule passages. No approximate index is needed for this small policy.
 
 A3 remains disabled until `POLICY_QA_ENABLED=true`, the approved policy and existing private A1 budget settings are configured. After approval, `uv run --frozen --env-file .env python -m unloop.policy_index` embeds only approved packaged clauses using `text-embedding-3-small`, 1536 dimensions; repeat runs reuse a complete matching index. Indexing, query embeddings and answers all consume the same persistent global reservation ceiling as receipt extraction. Test adapters are confined to test code and the disposable browser server.
+
+
+Use `.env.example` for the complete private runtime field list without overwriting existing configuration. The pinned model is `gpt-6-luna`; private budgets require at least the verified standard prices $0.10/$0.50 per million input/output tokens and inputs at most 200,000 tokens. Prices/access must be rechecked before activation. Configured price floors and conservative reservations are guards, not measured spend. Actual embeddings, receipt extraction and policy answers use the same persistent ceiling. APPROVED_API_TOKEN is independent of the persona cookie; never put it in the frontend or shared request examples. Provider activation and policy approval flags remain false until their owner decisions are recorded. [Model reference](https://developers.openai.com/api/docs/models/gpt-6-luna).

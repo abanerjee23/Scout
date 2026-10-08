@@ -4,7 +4,7 @@ export type DemoSession = {
   csrfToken: string; expiresAt: string;
 };
 export type Header = { name: string; startDate: string; endDate: string; businessPurpose: string };
-export type Report = Header & { id: string; status: 'draft'; version: number; currency: 'GBP'; createdAt: string };
+export type Report = Header & { id: string; status: 'draft' | 'submitted' | 'partially_approved' | 'approved'; version: number; currency: 'GBP'; createdAt: string };
 export type Proposal = {
   header: Header; proposalToken: string; message: string; questions: string[];
   ready: boolean; parser: 'deterministic-v1';

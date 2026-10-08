@@ -9,7 +9,7 @@ import json
 from decimal import Decimal
 from pathlib import Path
 
-from unloop.contracts import ExtractionResult, validate_context
+from unloop.contracts import parse_extraction, validate_context
 from unloop.fixture_check import load_dataset
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,7 +32,7 @@ def score(outputs, cases):
         if record is None:
             continue
         try:
-            result = ExtractionResult.model_validate(record)
+            result = parse_extraction(record)
             validate_context(
                 result,
                 job_id=result.jobId,

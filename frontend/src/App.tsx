@@ -3,6 +3,8 @@ import { ApiError, api, loadSession, rememberSession, type DemoSession, type Per
 import AstraIntake from './components/AstraIntake';
 import ReportList from './components/ReportList';
 import ReportWorkspace from './components/ReportWorkspace';
+import ManagerWorkspace from './components/ManagerWorkspace';
+import Inbox from './components/Inbox';
 import SyntheticPreview from './SyntheticPreview';
 import './workspace.css';
 
@@ -82,6 +84,17 @@ function Workspace() {
     return () => { controller.abort(); };
   }, [session?.profile.id, session?.persona]);
 
+  function workspaceChanged() {
+    setEvidenceRefresh(value => value + 1);
+    if (!selected || session?.persona !== 'employee') return;
+    const id = selected.id, generation = epoch.current;
+    api<Report>(`/reports/${id}`).then(report => {
+      if (generation !== epoch.current) return;
+      setSelected(previous => previous?.id === id ? report : previous);
+      setReports(previous => previous.map(value => value.id === id ? report : value));
+    }).catch(problem => { if (generation === epoch.current) failure(problem); });
+  }
+
   async function switchPersona(persona: Persona) {
     if (!session || session.persona === persona) return;
     clearPrivateState(); setSwitching(true); setError(''); window.history.replaceState({}, '', '/');
@@ -109,11 +122,11 @@ function Workspace() {
       <p className="w-session-note">Demo workspace. {session ? `Reports are available in this browser session until ${new Date(session.expiresAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}.` : 'Reports stay private to your demo session.'}</p>
       {error && <div className="w-error" role="alert"><p>{error}</p>{!expired && <button className="w-text-button" onClick={() => window.location.reload()}>Reload workspace</button>}</div>}
       {!session ? <section className="w-unavailable">{loading ? <p role="status">Opening your workspace…</p> : expired ? <><h2>Start a new demo session</h2><p>The previous session is no longer accessible. A new session starts with an empty workspace.</p><button className="w-primary" onClick={() => void restart()}>Start new demo session</button></> : <><h2>Workspace unavailable</h2><p>Restore the API and report storage, then reload this page.</p><button className="w-primary" onClick={() => window.location.reload()}>Try again</button></>}</section> : switching ? <p role="status">Switching persona…</p> : session.persona === 'manager' ?
-        <section className="w-manager-empty"><span className="w-draft-badge">Manager inbox</span><h2>No submitted reports</h2><p>Employee drafts stay private. Submission and manager review are not available yet.</p></section> :
+        <ManagerWorkspace key={session.profile.id} session={session} onChanged={() => setEvidenceRefresh(value => value + 1)}/> :
         <div className="w-layout"><ReportList reports={reports} selectedId={selected?.id} loading={loading} onSelect={id => void openReport(id)} onNew={() => { readSequence.current += 1; setSelected(null); setOpening(false); setIntakeKey(value => value + 1); window.history.replaceState({}, '', '/'); }}/>
-          <AstraIntake key={`${session.profile.id}:${intakeKey}`} session={session} report={selected} refresh={evidenceRefresh} onUploaded={() => setEvidenceRefresh(value => value + 1)} onSaved={saved} onError={problem => { if (generation === epoch.current) failure(problem); }}/>
-          <ReportWorkspace report={selected} loading={opening} session={session} refresh={evidenceRefresh} onUploaded={() => setEvidenceRefresh(value => value + 1)} onError={failure}/></div>}
-      {showInbox && <section className="w-inbox" aria-label="Inbox"><h2>Inbox</h2><p>No inbox events yet. Submission and review will add events here when available.</p></section>}
+          <AstraIntake key={`${session.profile.id}:${intakeKey}`} session={session} report={selected} refresh={evidenceRefresh} onUploaded={workspaceChanged} onSaved={saved} onError={problem => { if (generation === epoch.current) failure(problem); }}/>
+          <ReportWorkspace report={selected} loading={opening} session={session} refresh={evidenceRefresh} onUploaded={workspaceChanged} onError={failure}/></div>}
+      {showInbox && session && <Inbox key={session.profile.id} session={session} refresh={evidenceRefresh}/>}
       <footer className="w-footer"><span>{session ? 'Demo workspace' : 'Unloop demo'}</span><a href="/?preview=1">View synthetic Meal preview</a></footer>
     </main>
   </div>;

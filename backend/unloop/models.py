@@ -80,7 +80,10 @@ class Report(Base):
         CheckConstraint(
             "char_length(btrim(business_purpose)) BETWEEN 5 AND 500", name="report_purpose_length"
         ),
-        CheckConstraint("status = 'draft' AND version = 1", name="report_phase1a_state"),
+        CheckConstraint(
+            "status IN ('draft','submitted','partially_approved','approved') AND version > 0",
+            name="report_workflow_state",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -94,7 +97,7 @@ class Report(Base):
     start_date: Mapped[date]
     end_date: Mapped[date]
     business_purpose: Mapped[str] = mapped_column(String(500))
-    status: Mapped[str] = mapped_column(String(16), default="draft")
+    status: Mapped[str] = mapped_column(String(24), default="draft")
     version: Mapped[int] = mapped_column(default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
@@ -330,7 +333,7 @@ class Expense(Base):
         CheckConstraint("version > 0", name="expense_version"),
         CheckConstraint(
             "state IN ('queued','processing','needs_information','review','failed','unsupported',"
-            "'unreadable','policy_inactive','conversion_pending','excluded','conflict','noncompliant','profile_incomplete')",
+            "'unreadable','policy_inactive','conversion_pending','excluded','conflict','noncompliant','profile_incomplete','approved')",
             name="expense_state",
         ),
     )
@@ -541,4 +544,196 @@ class PolicyQuestion(Base):
     lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     result: Mapped[dict | None] = mapped_column(JSON)
     failure_code: Mapped[str | None] = mapped_column(String(40))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Submission(Base):
+    __tablename__ = "submissions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["session_id", "report_id"],
+            ["reports.session_id", "reports.id"],
+            ondelete="CASCADE",
+            name="submission_report_owner",
+        ),
+        UniqueConstraint("report_id", "version", name="submission_report_version"),
+        UniqueConstraint("session_id", "request_id", name="submission_request_once"),
+        UniqueConstraint("session_id", "id", name="submission_owner_id"),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID]
+    report_id: Mapped[UUID]
+    request_id: Mapped[UUID]
+    request_hash: Mapped[str] = mapped_column(String(64))
+    version: Mapped[int]
+    header: Mapped[dict] = mapped_column(JSON)
+    total_gbp: Mapped[str] = mapped_column(String(40))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class SubmittedLine(Base):
+    __tablename__ = "submitted_lines"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["session_id", "submission_id"],
+            ["submissions.session_id", "submissions.id"],
+            ondelete="CASCADE",
+            name="submitted_line_owner",
+        ),
+        ForeignKeyConstraint(
+            ["session_id", "expense_id"],
+            ["expenses.session_id", "expenses.id"],
+            ondelete="CASCADE",
+            name="submitted_expense_owner",
+        ),
+        ForeignKeyConstraint(
+            ["expense_id", "revision_id"],
+            ["expense_revisions.expense_id", "expense_revisions.id"],
+            ondelete="CASCADE",
+            name="submitted_expense_revision",
+        ),
+        UniqueConstraint("submission_id", "expense_id", name="submitted_expense_once"),
+        UniqueConstraint("session_id", "id", name="submitted_line_owner_id"),
+        CheckConstraint(
+            "state IN ('pending','held','returned','approved','superseded')",
+            name="submitted_line_state",
+        ),
+        CheckConstraint("version > 0", name="submitted_line_version"),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID]
+    submission_id: Mapped[UUID]
+    expense_id: Mapped[UUID]
+    revision_id: Mapped[UUID]
+    snapshot: Mapped[dict] = mapped_column(JSON)
+    state: Mapped[str] = mapped_column(String(16), default="pending")
+    version: Mapped[int] = mapped_column(default=1)
+
+
+class ApprovalRelease(Base):
+    __tablename__ = "approval_releases"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["session_id", "report_id"],
+            ["reports.session_id", "reports.id"],
+            ondelete="CASCADE",
+            name="release_report_owner",
+        ),
+        UniqueConstraint("session_id", "request_id", name="release_request_once"),
+        UniqueConstraint("report_id", "version", name="release_report_version"),
+        UniqueConstraint("session_id", "id", name="release_owner_id"),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID]
+    report_id: Mapped[UUID]
+    request_id: Mapped[UUID]
+    request_hash: Mapped[str] = mapped_column(String(64))
+    version: Mapped[int]
+    snapshot: Mapped[dict] = mapped_column(JSON)
+    total_gbp: Mapped[str] = mapped_column(String(40))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ApprovedLine(Base):
+    __tablename__ = "approved_lines"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["session_id", "release_id"],
+            ["approval_releases.session_id", "approval_releases.id"],
+            ondelete="CASCADE",
+            name="approved_release_owner",
+        ),
+        ForeignKeyConstraint(
+            ["session_id", "expense_id"],
+            ["expenses.session_id", "expenses.id"],
+            ondelete="CASCADE",
+            name="approved_expense_owner",
+        ),
+        ForeignKeyConstraint(
+            ["expense_id", "revision_id"],
+            ["expense_revisions.expense_id", "expense_revisions.id"],
+            ondelete="CASCADE",
+            name="approved_expense_revision",
+        ),
+        UniqueConstraint("expense_id", name="expense_approved_once"),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID]
+    release_id: Mapped[UUID]
+    expense_id: Mapped[UUID]
+    revision_id: Mapped[UUID]
+    snapshot: Mapped[dict] = mapped_column(JSON)
+
+
+class ApprovedMealSlot(Base):
+    __tablename__ = "approved_meal_slots"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["session_id", "expense_id"],
+            ["expenses.session_id", "expenses.id"],
+            ondelete="CASCADE",
+            name="approved_meal_expense_owner",
+        ),
+        CheckConstraint("meal_type IN ('breakfast','lunch','dinner')", name="approved_meal_type"),
+    )
+    session_id: Mapped[UUID] = mapped_column(
+        ForeignKey("demo_sessions.id", ondelete="CASCADE"), primary_key=True
+    )
+    receipt_date: Mapped[date] = mapped_column(primary_key=True)
+    meal_type: Mapped[str] = mapped_column(String(16), primary_key=True)
+    expense_id: Mapped[UUID] = mapped_column(
+        ForeignKey("expenses.id", ondelete="CASCADE"), unique=True
+    )
+
+
+class ProcessingReady(Base):
+    __tablename__ = "processing_ready"
+    release_id: Mapped[UUID] = mapped_column(
+        ForeignKey("approval_releases.id", ondelete="CASCADE"), primary_key=True
+    )
+    state: Mapped[str] = mapped_column(String(16), default="ready")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (CheckConstraint("state = 'ready'", name="processing_not_payment"),)
+
+
+class ReviewQuestion(Base):
+    __tablename__ = "review_questions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["session_id", "line_id"],
+            ["submitted_lines.session_id", "submitted_lines.id"],
+            ondelete="CASCADE",
+            name="review_question_owner",
+        ),
+        UniqueConstraint("session_id", "request_id", name="review_question_request_once"),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID]
+    line_id: Mapped[UUID]
+    request_id: Mapped[UUID]
+    question: Mapped[str] = mapped_column(String(1000))
+    response: Mapped[str | None] = mapped_column(String(1500))
+    version: Mapped[int] = mapped_column(default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class InboxEvent(Base):
+    __tablename__ = "inbox_events"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["session_id", "report_id"],
+            ["reports.session_id", "reports.id"],
+            ondelete="CASCADE",
+            name="inbox_report_owner",
+        ),
+        UniqueConstraint("session_id", "persona", "event_key", name="inbox_event_once"),
+        CheckConstraint("persona IN ('employee','manager')", name="inbox_persona"),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID]
+    report_id: Mapped[UUID]
+    persona: Mapped[str] = mapped_column(String(16))
+    event_key: Mapped[str] = mapped_column(String(100))
+    payload: Mapped[dict] = mapped_column(JSON)
+    read: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

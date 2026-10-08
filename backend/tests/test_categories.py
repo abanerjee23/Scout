@@ -276,3 +276,42 @@ def test_cabin_entitlement_table_and_missing_grade(grade, cabin_class, eligible)
     assert result["eligible"] is eligible
     if grade is None:
         assert result["state"] == "profile_incomplete"
+
+
+def test_ground_missing_optional_routes_do_not_block_but_conflicting_routes_pause(
+    client, postgres, meal
+):
+    class OptionalRouteExtractor(CategoryExtractor):
+        def extract(self, context, documents):
+            result, diagnostics = super().extract(context, documents)
+            result["issues"] = [
+                {"field": "origin", "reason": "missingRequired", "evidenceRefs": []},
+                {"field": "destination", "reason": "missingRequired", "evidenceRefs": []},
+            ]
+            result["resultState"] = "needsInformation"
+            return result, diagnostics
+
+    assert run(postgres, OptionalRouteExtractor(GROUND), policy=POLICY)
+    result = saved(client, meal)
+    assert result["state"] == "review" and result["issues"] == []
+    from unloop.category_fields import blocking_issue
+
+    assert blocking_issue("origin", "conflictingEvidence", GROUND)
+
+
+def test_air_fixture_location_aliases_preserve_city_airport_distinction(client, postgres, meal):
+    assert run(
+        postgres,
+        CategoryExtractor({**AIR, "origin": "  london  heathrow ", "destination": "Paris"}),
+        policy=POLICY,
+    )
+    result = saved(client, meal)
+    assert result["facts"]["origin"] == "LHR" and result["facts"]["destination"] == "Paris"
+    assert result["provenance"]["factEvidence"]["origin"]["value"] == "  london  heathrow "
+    from unloop.category_fields import normalize_locations
+
+    assert normalize_locations({"category": "air", "origin": "London"})["origin"] == "London"
+    assert (
+        normalize_locations({"category": "air", "origin": "Unknown Airport"})["origin"]
+        == "Unknown Airport"
+    )

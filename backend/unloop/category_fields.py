@@ -45,3 +45,40 @@ def active_fields(facts):
     if facts.get("journeyType") != "return":
         fields = [key for key in fields if key != "returnDate"]
     return fields
+
+
+def blocking_issue(field, reason, facts):
+    # Optional values do not become mandatory when a model reports them missing.
+    # Ambiguous/malformed evidence still pauses for review.
+    return not (
+        field == "vatAmount"
+        or facts.get("category") == "groundTransport"
+        and field in {"origin", "destination"}
+        and reason == "missingRequired"
+    )
+
+
+# Deliberately small fixture-backed aliases, not an airport directory.
+# A city name never implies a particular airport.
+LOCATION_ALIASES = {
+    "lhr": "LHR",
+    "heathrow": "LHR",
+    "london heathrow": "LHR",
+    "cdg": "CDG",
+    "charles de gaulle": "CDG",
+    "paris charles de gaulle": "CDG",
+    "london": "London",
+    "paris": "Paris",
+    "new york": "New York",
+}
+
+
+def normalize_locations(facts):
+    if facts.get("category") != "air":
+        return facts
+    result = dict(facts)
+    for key in ["origin", "destination"]:
+        if result.get(key):
+            text = " ".join(result[key].split())
+            result[key] = LOCATION_ALIASES.get(text.lower(), text)
+    return result

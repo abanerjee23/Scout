@@ -325,6 +325,14 @@ def test_actual_migration_is_repeatable_and_matches_models(postgres):
         "expense_calculations",
         "policy_chunks",
         "policy_questions",
+        "submissions",
+        "submitted_lines",
+        "approval_releases",
+        "approved_lines",
+        "approved_meal_slots",
+        "processing_ready",
+        "review_questions",
+        "inbox_events",
     }
     config = Config(str(ROOT / "alembic.ini"))
     with engine.begin() as connection:
