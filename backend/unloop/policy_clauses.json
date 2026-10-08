@@ -1,0 +1,156 @@
+{
+  "GEN-01": {
+    "id": "GEN-01",
+    "title": "A receipt is required",
+    "text": "Every expense line must have a receipt or invoice attached before it can be submitted. A booking confirmation may provide supporting journey or cabin details, but does not replace the receipt or invoice.",
+    "source": "Synthetic Travel & Expense Policy",
+    "precedence": 1
+  },
+  "GEN-02": {
+    "id": "GEN-02",
+    "title": "Expense facts must be supported",
+    "text": "The merchant, receipt date, original amount and transaction currency must be supported by the attached receipt or invoice. Category-specific facts required by this policy must be supported by the receipt or a permitted supporting document.\n\nThe employee may correct an extraction error. A correction does not become policy-compliant merely because it was entered by the employee; required evidence must still support it.",
+    "source": "Synthetic Travel & Expense Policy",
+    "precedence": 1
+  },
+  "GEN-03": {
+    "id": "GEN-03",
+    "title": "Missing and ambiguous evidence",
+    "text": "If required evidence is missing, unreadable, contradictory or ambiguous, the expense is **Needs information**. Unloop must ask for the specific missing fact or clearer evidence. It must not guess, deny the expense as noncompliant, or treat an evidence problem as policy ambiguity.",
+    "source": "Synthetic Travel & Expense Policy",
+    "precedence": 1
+  },
+  "GEN-04": {
+    "id": "GEN-04",
+    "title": "VAT",
+    "text": "VAT may be recorded when it is explicitly stated on the receipt or invoice. If it cannot be extracted reliably, the VAT field remains blank and does not by itself block the expense.",
+    "source": "Synthetic Travel & Expense Policy",
+    "precedence": 1
+  },
+  "GEN-05": {
+    "id": "GEN-05",
+    "title": "Authority to approve",
+    "text": "The employee remains responsible for reviewing the prepared expense and explicitly submitting eligible lines. The manager remains responsible for approving the exact submitted version and may release eligible selected lines while holding or returning others. Partial approval does not waive any applicable rule or imply approval of pending lines. Approved amounts are immutable processing-ready records, not proof of reimbursement.\n\nThe demo uses an Employee/Manager toggle within a server-owned session and predefined manager routing, without employee/manager login or manager details at report creation. This does not establish a production identity/role system.",
+    "source": "Synthetic Travel & Expense Policy",
+    "precedence": 1
+  },
+  "AIR-01": {
+    "id": "AIR-01",
+    "title": "Supported journey types",
+    "text": "An Air expense may describe a **One-way** or **Return** journey.\n\nThe following facts are required:\n\n- origin;\n- destination;\n- departure date;\n- return date for a Return journey; and\n- cabin class.\n\nThe return date must not be earlier than the departure date. Flight number, departure time, ticket number and booking reference are not required by this policy version.",
+    "source": "Synthetic Travel & Expense Policy",
+    "precedence": 1
+  },
+  "AIR-02": {
+    "id": "AIR-02",
+    "title": "Trusted employee grade",
+    "text": "Cabin entitlement is determined using the employee grade stored in the server-seeded employee profile for the owning demo session. The employee cannot enter or edit their own grade. A connected Gmail address, typed email or persona toggle is not evidence of grade. A production release requires a controlled profile linked to a persistent verified owner; the current demo does not use Supabase employee/manager Auth.\n\nIf the profile does not contain a valid grade, the expense is **Employee profile incomplete** and the cabin check cannot finish. This is a profile-data problem, not a policy exception, and it must not default to the highest cabin allowance.",
+    "source": "Synthetic Travel & Expense Policy",
+    "precedence": 1
+  },
+  "AIR-03": {
+    "id": "AIR-03",
+    "title": "Maximum permitted cabin",
+    "text": "The maximum permitted cabin is:\n\n| Employee grade | Maximum permitted cabin |\n|---|---|\n| A\u2013C | Economy |\n| D\u2013F | Premium Economy |\n| G | Business |\n\nAn employee may travel in any lower cabin. For example, a Grade G employee may use Economy, Premium Economy or Business; a Grade A\u2013C employee may use Economy only.\n\nFor this version, the cabin order is **Economy \u2192 Premium Economy \u2192 Business**. Airline-specific fare names must be mapped to one of these three cabins before the rule can be applied. If the mapping is not established, the expense is **Needs information** rather than automatically compliant or noncompliant.",
+    "source": "Synthetic Travel & Expense Policy",
+    "precedence": 1
+  },
+  "AIR-04": {
+    "id": "AIR-04",
+    "title": "Cabin evidence",
+    "text": "Cabin class must be supported by the receipt or a permitted booking confirmation attached to the expense. The employee may correct an incorrectly extracted cabin, but an unsupported self-declaration is not sufficient evidence for the cabin check.\n\nIf the available documents do not establish the cabin class, the expense is **Needs information**.",
+    "source": "Synthetic Travel & Expense Policy",
+    "precedence": 1
+  },
+  "AIR-05": {
+    "id": "AIR-05",
+    "title": "Cabin compliance outcome",
+    "text": "An Air expense is **Compliant** with the cabin rule when its evidence-supported cabin is at or below the maximum allowed for the trusted employee grade.\n\nAn Air expense is **Noncompliant** when its evidence-supported cabin is above that maximum. Unloop must identify the booked cabin, the permitted maximum and this policy clause. The employee may correct an evidence or profile error through the appropriate controlled process, or exclude a genuinely noncompliant line before submitting the report. The manager cannot approve it as an exception.",
+    "source": "Synthetic Travel & Expense Policy",
+    "precedence": 1
+  },
+  "MEAL-01": {
+    "id": "MEAL-01",
+    "title": "Meal type",
+    "text": "Every Meal expense must be classified as **Breakfast**, **Lunch** or **Dinner**. Unloop may use explicit receipt wording, purchased items and time context to suggest the meal type, but must never infer it from the amount alone. If the evidence does not establish the type reliably, the expense is **Needs information** and the employee must confirm or correct it before the allowance is applied.",
+    "source": "Synthetic Travel & Expense Policy",
+    "precedence": 1
+  },
+  "MEAL-02": {
+    "id": "MEAL-02",
+    "title": "Preserve the receipt amount",
+    "text": "The total shown on the receipt remains the original expense amount and must never be overwritten by a policy allowance. For a foreign-currency receipt, Unloop first converts the full receipt amount to GBP using the rules in CUR-02 and CUR-03.\n\nThe expense record must distinguish:\n\n- the original receipt amount and transaction currency;\n- the full receipt amount converted to GBP, where conversion is required;\n- the applicable GBP meal allowance;\n- the GBP amount included in the claim; and\n- any GBP amount above the allowance that is not included in the claim.",
+    "source": "Synthetic Travel & Expense Policy",
+    "precedence": 1
+  },
+  "MEAL-03": {
+    "id": "MEAL-03",
+    "title": "Automatic adjustment to the policy limit",
+    "text": "If the full GBP receipt amount is within the allowance for the confirmed meal type, the full amount is included in the claim.\n\nIf it exceeds the allowance, Unloop automatically sets the claim amount to the policy limit. The difference is shown as **Amount above policy limit** and is not included in the report total or downstream approved amount. The employee must not be required to calculate or re-enter the maximum claim manually.\n\nThe expense receives the user-facing outcome **Adjusted to policy limit** and remains eligible for review and submission at the adjusted amount. Unloop must state the receipt amount, applicable allowance, claim amount, excluded difference and governing clause. The employee may reduce the claim further or exclude the expense, but cannot increase it above the policy limit. The manager cannot override the limit.\n\nThe amount comparison and adjustment are deterministic calculations. AI may explain the adjustment in plain language, but must not perform or control the arithmetic.",
+    "source": "Synthetic Travel & Expense Policy",
+    "precedence": 1
+  },
+  "MEAL-04": {
+    "id": "MEAL-04",
+    "title": "Meal allowances",
+    "text": "The maximum claim amounts are:\n\n| Meal type | Maximum claim amount |\n|---|---:|\n| Breakfast | \u00a315 |\n| Lunch | \u00a325 |\n| Dinner | \u00a350 |\n\nThese are separate GBP limits for each meal, not a combined daily allowance or a budget that can be filled using several receipts. Unloop applies the limit only after the meal type is supported or confirmed. The receipt amount must never be used to infer whether the expense is Breakfast, Lunch or Dinner.",
+    "source": "Synthetic Travel & Expense Policy",
+    "precedence": 1
+  },
+  "MEAL-05": {
+    "id": "MEAL-05",
+    "title": "Tips and service charges",
+    "text": "The complete receipt total, including any tip or service charge shown on the receipt, is treated as the Meal amount and is subject to the same Breakfast, Lunch or Dinner limit. There is no separate additional allowance and no tip or service-charge itemisation in the POC.",
+    "source": "Synthetic Travel & Expense Policy",
+    "precedence": 1
+  },
+  "MEAL-06": {
+    "id": "MEAL-06",
+    "title": "One meal, one restaurant, one receipt",
+    "text": "For each employee, receipt date and meal type, exactly one Meal expense may be claimed. That expense must represent one meal purchased from one restaurant and must be supported by exactly one final receipt from that restaurant.\n\nUnloop must not combine multiple receipts into one Meal expense, add several smaller receipts up to the policy limit, or allow one meal to be split across multiple expense lines. For example, ten \u00a35 Dinner receipts cannot be combined into a \u00a350 Dinner claim. If more than one receipt or Meal expense exists for the same employee, receipt date and meal type, the affected expenses are **Needs information** while the employee selects the single receipt to claim and excludes the others. If the submitted claim still depends on multiple receipts or restaurants, it is **Noncompliant** and cannot proceed.\n\nTwo uploads that are verified as copies of the same receipt are a duplicate-upload problem, not two policy receipts. Unloop should retain one evidence record and must not create or pay a second claim.",
+    "source": "Synthetic Travel & Expense Policy",
+    "precedence": 1
+  },
+  "CUR-01": {
+    "id": "CUR-01",
+    "title": "Submission currency",
+    "text": "The report submission currency is GBP. A GBP expense is recorded in GBP and does not require foreign-exchange conversion.",
+    "source": "Synthetic Travel & Expense Policy",
+    "precedence": 1
+  },
+  "CUR-02": {
+    "id": "CUR-02",
+    "title": "Foreign-currency expenses",
+    "text": "For an expense incurred in another currency, Unloop must retain and display:\n\n- the original amount and transaction currency;\n- the converted GBP amount;\n- the exchange rate source; and\n- the conversion date.\n\nConversion changes neither the original amount nor its currency.",
+    "source": "Synthetic Travel & Expense Policy",
+    "precedence": 1
+  },
+  "CUR-03": {
+    "id": "CUR-03",
+    "title": "Conversion date",
+    "text": "The FX conversion date must equal the receipt date. It must not be replaced by the upload, processing, travel or report-submission date.\n\nUnloop first uses a saved acceptable rate for that source, currency pair and date. Otherwise it requests the receipt-date rate from Frankfurter pinned to ECB data, with Open Exchange Rates as the approved fallback. If neither source supplies an acceptable matching-date rate, the expense is **Conversion pending** and cannot be submitted until the conversion is resolved. An earlier rate must not be relabelled as a receipt-date rate.\n\nThe fallback rate may have a different published basis from the ECB rate; Unloop must preserve the provider and actual rate record used rather than present the sources as identical.",
+    "source": "Synthetic Travel & Expense Policy",
+    "precedence": 1
+  },
+  "GROUND-01": {
+    "id": "GROUND-01",
+    "title": "Business journeys",
+    "text": "Taxi and Public Transport are eligible for documented business journeys. Route fields are optional. No mode preference applies.",
+    "source": "Synthetic Travel & Expense Policy",
+    "precedence": 1
+  },
+  "GROUND-02": {
+    "id": "GROUND-02",
+    "title": "Receipt amount and excluded penalties",
+    "text": "Eligible business transport uses the full receipt amount, including listed tips and service charges. Separately identified cancellation and penalty charges are excluded before the GBP claim is approved.",
+    "source": "Synthetic Travel & Expense Policy",
+    "precedence": 1
+  },
+  "GROUND-03": {
+    "id": "GROUND-03",
+    "title": "Ground Transport limits",
+    "text": "No additional amount cap applies to eligible Taxi or Public Transport in this synthetic demo. This rule requires explicit owner approval before activation.",
+    "source": "Synthetic Travel & Expense Policy",
+    "precedence": 1
+  }
+}

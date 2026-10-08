@@ -842,7 +842,10 @@ def test_migration_populated_upgrade_downgrade_reupgrade_and_immutable_policy(po
             assert db.scalar(text("SELECT to_regclass('expenses')")) is None
             command.upgrade(config, "head")
             command.check(config)
-            assert db.scalar(text("SELECT version_num FROM alembic_version")) == "0005_phase2_meals"
+            assert (
+                db.scalar(text("SELECT version_num FROM alembic_version"))
+                == "0006_phase3_categories"
+            )
             db.execute(
                 text(
                     "INSERT INTO meal_policy_versions VALUES "

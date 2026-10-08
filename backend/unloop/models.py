@@ -329,7 +329,7 @@ class Expense(Base):
         CheckConstraint("version > 0", name="expense_version"),
         CheckConstraint(
             "state IN ('queued','processing','needs_information','review','failed','unsupported',"
-            "'unreadable','policy_inactive','conversion_pending','excluded','conflict')",
+            "'unreadable','policy_inactive','conversion_pending','excluded','conflict','noncompliant','profile_incomplete')",
             name="expense_state",
         ),
     )

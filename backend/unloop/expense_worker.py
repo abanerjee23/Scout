@@ -10,10 +10,10 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from unloop.contracts import ExtractionResult, validate_context
+from unloop.category_fields import CATEGORY_FIELDS, active_fields, cabin, required
+from unloop.contracts import ExtractionResult, parse_extraction, validate_context
 from unloop.expenses import (
     FIELDS,
-    REQUIRED,
     check_facts,
     meal_slot,
     receipt_decision,
@@ -24,6 +24,7 @@ from unloop.extraction import MODEL, PROMPT_VERSION, ExtractionFailure, observe
 from unloop.fx import FxPending, saved, validate_observation
 from unloop.meal_policy import CAPS, CLAUSES
 from unloop.models import (
+    DemoProfile,
     DemoSession,
     Document,
     DocumentBytes,
@@ -35,6 +36,7 @@ from unloop.models import (
     MealPolicyVersion,
     ModelBudget,
 )
+from unloop.policy_registry import registry
 
 
 @dataclass(frozen=True)
@@ -150,14 +152,14 @@ def reserve_call(engine, claim, settings):
         job.reserved_usd = str(Decimal(job.reserved_usd or "0") + amount)
 
 
-def validated_output(output, claim, document):
+def validated_output(output, claim, document, supporting=None):
     if not isinstance(output, ExtractionResult):
-        output = ExtractionResult.model_validate(output)
+        output = parse_extraction(output)
     validate_context(
         output,
         job_id=str(claim.id),
         revision_id=str(claim.revision_id),
-        document_pages={str(document.id): document.page_count},
+        document_pages={str(item.id): item.page_count for item in [document, *(supporting or [])]},
     )
     if len(output.model_dump_json()) > 32768 or len(output.issues) > 20:
         raise ValueError("Bounded A1 output required")
@@ -166,10 +168,12 @@ def validated_output(output, claim, document):
         for issue in output.issues
     ):
         raise ValueError("Unknown issue field")
-    if len(output.documentFindings) != 1 or output.documentFindings[0].documentId != str(
-        document.id
-    ):
-        raise ValueError("Exactly the supplied receipt finding is required")
+    expected_ids = {str(item.id) for item in [document, *(supporting or [])]}
+    finding_ids = [item.documentId for item in output.documentFindings]
+    if len(finding_ids) != len(expected_ids) or set(finding_ids) != expected_ids:
+        raise ValueError("Exactly the authorized document findings are required")
+    # The first finding is the selected primary receipt; supporting evidence cannot replace it.
+    output.documentFindings.sort(key=lambda item: item.documentId != str(document.id))
     if output.resultState == "complete" and (
         not output.documentFindings[0].readable
         or output.documentFindings[0].apparentRole != "receipt"
@@ -177,15 +181,20 @@ def validated_output(output, claim, document):
         raise ValueError("Complete extraction requires a readable final receipt")
     facts = {key: field.value for key, field in vars(output.commonFields).items()}
     facts["category"] = output.classification.value
-    facts["mealType"] = output.categoryFields.mealType.value if output.categoryFields else None
+    if output.categoryFields:
+        facts.update({key: field.value for key, field in vars(output.categoryFields).items()})
+    elif output.schemaVersion == "0.1":
+        facts["mealType"] = None
+    if facts.get("cabinClass"):
+        facts["cabinClass"] = cabin(facts["cabinClass"])
     check_facts(facts)
     return output, facts
 
 
-def prepare_calculation(engine, facts, policy, adapter):
+def prepare_calculation(engine, facts, policy, adapter, *, owner_id=None, evidence=None):
     if (
-        any(not facts.get(key) for key in REQUIRED)
-        or facts.get("category") != "meals"
+        any(not facts.get(key) for key in required(facts))
+        or facts.get("category") not in CATEGORY_FIELDS
         or policy is None
     ):
         return None
@@ -194,10 +203,19 @@ def prepare_calculation(engine, facts, policy, adapter):
         return None
     with Session(engine) as db:
         observation = saved(db, facts["transactionCurrency"], day)
+        grade = (
+            db.scalar(
+                select(DemoProfile.grade).where(
+                    DemoProfile.session_id == owner_id, DemoProfile.persona == "employee"
+                )
+            )
+            if owner_id
+            else None
+        )
     if observation is None:
         observation = adapter.fetch(facts["transactionCurrency"], day)
     observation = validate_observation(observation, facts["transactionCurrency"], day)
-    return policy.calculate(facts, observation)
+    return policy.calculate(facts, observation, grade=grade, evidence=evidence)
 
 
 def finish_expense(
@@ -259,13 +277,21 @@ def finish_expense(
                 item.provenance = {
                     **item.provenance,
                     "receiptEligibility": receipt_decision(output.model_dump()),
+                    "factEvidence": {
+                        key: field.model_dump()
+                        for key, field in {
+                            **vars(output.commonFields),
+                            **(vars(output.categoryFields) if output.categoryFields else {}),
+                        }.items()
+                    },
                 }
                 item.issues = [
                     issue.model_dump()
                     for issue in output.issues
                     if issue.field != "vatAmount"
                     and (
-                        issue.field not in item.locks
+                        ("category" if issue.field == "classification" else issue.field)
+                        not in item.locks
                         or issue.reason in {"multipleReceipts", "unreadable"}
                         or issue.field in {"receipt", "documents"}
                     )
@@ -285,22 +311,21 @@ def finish_expense(
                         },
                     ]
                 item.facts = {**facts, **{key: item.facts.get(key) for key in item.locks}}
+                fields = {
+                    "category": output.classification,
+                    **vars(output.commonFields),
+                    **(vars(output.categoryFields) if output.categoryFields else {}),
+                }
                 provenance = {
                     key: {
                         "source": "model",
                         "model": MODEL,
                         "promptVersion": PROMPT_VERSION,
-                        "schemaVersion": "0.1",
-                        "evidenceRefs": (
-                            output.classification
-                            if key == "category"
-                            else output.categoryFields.mealType
-                            if key == "mealType" and output.categoryFields
-                            else getattr(output.commonFields, key, None)
-                        ).model_dump()["evidenceRefs"],
+                        "schemaVersion": output.schemaVersion,
+                        "evidenceRefs": field.model_dump()["evidenceRefs"],
                     }
-                    for key in FIELDS
-                    if key not in item.locks and (key != "mealType" or output.categoryFields)
+                    for key, field in fields.items()
+                    if key not in item.locks
                 }
                 item.provenance = {**item.provenance, **provenance}
             item.failure_code = None
@@ -312,12 +337,12 @@ def finish_expense(
             ):
                 item.state = "unsupported" if output.resultState == "unsupported" else "unreadable"
                 item.calculation = None
-            elif item.facts.get("category") not in {None, "meals"}:
+            elif item.facts.get("category") not in {None, *CATEGORY_FIELDS}:
                 item.state, item.calculation = "unsupported", None
             elif (
                 not receipt_eligible(db, item)
                 or item.issues
-                or any(not item.facts.get(key) for key in REQUIRED)
+                or any(not item.facts.get(key) for key in required(item.facts))
                 or (item.locks and not item.confirmed)
             ):
                 item.state, item.calculation = "needs_information", None
@@ -329,7 +354,7 @@ def finish_expense(
             elif calculation is None:
                 item.state = "conversion_pending"
             else:
-                item.state = "review"
+                item.state = calculation.get("state", "review")
                 calculation = {**calculation, "expenseRevisionId": str(claim.revision_id)}
                 item.calculation = calculation
                 db.execute(
@@ -343,7 +368,16 @@ def finish_expense(
                         id=policy.version,
                         effective_date=policy.effective_date,
                         rounding=policy.rounding,
-                        facts={"caps": CAPS, "clauses": CLAUSES},
+                        facts={
+                            "caps": CAPS,
+                            "clauses": CLAUSES,
+                            "source": registry(policy),
+                            "cabinByGrade": {
+                                "ABC": "economy",
+                                "DEF": "premiumEconomy",
+                                "G": "business",
+                            },
+                        },
                         created_at=now,
                     )
                     .on_conflict_do_nothing()
@@ -380,11 +414,15 @@ def run_expense_once(engine, settings, extractor, policy, fx):
             if document.state != "validated" or hashlib.sha256(raw).hexdigest() != document.sha256:
                 raise ExtractionFailure("processing_failed")
             context = {
-                "schemaVersion": "0.1",
+                "schemaVersion": "0.2",
                 "jobId": str(claim.id),
                 "expenseRevisionId": str(claim.revision_id),
                 "submissionCurrency": "GBP",
-                "supportedTaxonomy": {"meals": ["breakfast", "lunch", "dinner"]},
+                "supportedTaxonomy": {
+                    "meals": ["breakfast", "lunch", "dinner"],
+                    "air": ["oneWay", "return"],
+                    "groundTransport": ["taxi", "publicTransport"],
+                },
                 "documents": [
                     {
                         "documentId": str(document.id),
@@ -398,7 +436,32 @@ def run_expense_once(engine, settings, extractor, policy, fx):
                 if "category" in item.locks
                 else None,
             }
+            supporting = (
+                [
+                    db.get(Document, value)
+                    for value in item.provenance.get("supportingDocumentIds", [])
+                ]
+                if item.facts.get("category") != "meals"
+                else []
+            )
+            for support in supporting:
+                if (
+                    support is None
+                    or support.session_id != item.session_id
+                    or support.state != "validated"
+                ):
+                    raise ExtractionFailure("processing_failed")
+            context["documents"] += [
+                {
+                    "documentId": str(value.id),
+                    "role": "supportingDocument",
+                    "mimeType": value.mime_type,
+                    "pageCount": value.page_count,
+                }
+                for value in supporting
+            ]
             facts, locks, confirmed = dict(item.facts), list(item.locks), item.confirmed
+            evidence = item.provenance.get("factEvidence", {})
             eligible = receipt_eligible(db, item)
             retained_issues = [issue for issue in item.issues if issue["field"] != "vatAmount"]
             if len(retained_issues) != len(item.issues) and "vatAmount" not in locks:
@@ -411,12 +474,25 @@ def run_expense_once(engine, settings, extractor, policy, fx):
                     "pages": document.page_count,
                 }
             ]
+            for support in supporting:
+                content = db.get(DocumentBytes, support.id).content
+                if hashlib.sha256(content).hexdigest() != support.sha256:
+                    raise ExtractionFailure("processing_failed")
+                bundle.append(
+                    {
+                        "id": str(support.id),
+                        "content": content,
+                        "mime": support.mime_type,
+                        "pages": support.page_count,
+                        "role": "supportingDocument",
+                    }
+                )
         output, diagnostics = None, None
         if claim.kind == "extract":
             reserve_call(engine, claim, settings)
             output, diagnostics = extractor.extract(context, bundle)
             try:
-                output, candidate = validated_output(output, claim, document)
+                output, candidate = validated_output(output, claim, document, supporting)
             except ValueError:
                 raise ExtractionFailure("invalid_output") from None
             eligible = receipt_decision(output.model_dump())["eligible"]
@@ -425,7 +501,7 @@ def run_expense_once(engine, settings, extractor, policy, fx):
                 for issue in output.issues
                 if issue.field != "vatAmount"
                 and (
-                    issue.field not in locks
+                    ("category" if issue.field == "classification" else issue.field) not in locks
                     or issue.reason in {"multipleReceipts", "unreadable"}
                     or issue.field in {"receipt", "documents"}
                 )
@@ -436,6 +512,14 @@ def run_expense_once(engine, settings, extractor, policy, fx):
                 candidate["vatAmount"] = None
                 diagnostics = {**(diagnostics or {}), "optionalVat": "blank_nonblocking"}
             facts = {**candidate, **{key: facts.get(key) for key in locks}}
+            facts = {key: value for key, value in facts.items() if key in active_fields(facts)}
+            evidence = {
+                key: field.model_dump()
+                for key, field in {
+                    **vars(output.commonFields),
+                    **(vars(output.categoryFields) if output.categoryFields else {}),
+                }.items()
+            }
         check_facts(facts)
         # Revalidate before a new FX provider read, not only before persistence.
         with Session(engine) as db:
@@ -452,7 +536,9 @@ def run_expense_once(engine, settings, extractor, policy, fx):
             )
         ):
             try:
-                calculation = prepare_calculation(engine, facts, policy, fx)
+                calculation = prepare_calculation(
+                    engine, facts, policy, fx, owner_id=claim.session_id, evidence=evidence
+                )
             except FxPending:
                 pass
         finish_expense(

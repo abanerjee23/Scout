@@ -21,6 +21,7 @@ from unloop.extraction import A1Settings
 from unloop.gmail import router as gmail_router
 from unloop.gmail_provider import GmailFailure, GmailSettings, GoogleAdapter
 from unloop.meal_policy import MealPolicy
+from unloop.policy_registry import router as policy_router
 
 
 def create_app(test_config: dict | None = None) -> FastAPI:
@@ -173,6 +174,7 @@ def create_app(test_config: dict | None = None) -> FastAPI:
     app.include_router(evidence_router)
     app.include_router(gmail_router)
     app.include_router(expense_router)
+    app.include_router(policy_router)
     static = os.environ.get("UNLOOP_STATIC_DIR")
     if static:
         root = Path(static).resolve()

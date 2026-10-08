@@ -325,3 +325,17 @@ Follow-up complete mandatory PostgreSQL suite: **240 passed, zero skips**, one e
 **Hypothesis:** extending the revisioned workspace to Air and Ground Transport with explicit required fields, supporting-document references and code-owned checks will enable mixed reports without weakening evidence or financial authority.
 
 **Acceptance before implementation:** preserve v0.1 Meal fixtures; schema v0.2 covers category-specific fields and exact authorized document references; category changes deactivate old fields; Air cabin derives from evidence and server grade only; unknown cabin, missing grade, missing rules and noncompliance remain explicit pauses; Ground Transport assessment stays inactive pending owner rules; approved source/version/checklist appears beside results. Financial calculations remain Decimal, human locks survive reruns and no model can waive restrictions. Real provider gates remain unmeasured until private access and spending approval.
+
+**ITER-010 build and validation:** schema v0.2 covers Air and Ground Transport while v0.1 Meal fixtures remain unchanged. The workspace deactivates unrelated fields; selected supporting evidence is owner/report/version checked. A fixed cabin vocabulary, evidence-backed cabin check, server grade table, approved-source registry, required-rule checklist and Decimal travel amounts are implemented. Ground policy remains inactive without explicit approval. A2 currently renders deterministic findings; generative explanation quality is not claimed.
+
+The initial full run passed 331 checks and found a supporting-document UUID parsing defect; the affected real PostgreSQL regression passed after repair. Fifteen Chromium checks then passed with **four workers** (59.8s), including the new category/cabin clarification flow. Prior CI reproduced session-loading failures: polling reads no longer take mutation row locks, while all mutations and post-upload/OAuth writes retain fresh owner locks. A dedicated held-lock test proves four session reads complete within two seconds. An early browser privacy assertion ran before persona switching committed; it now waits for the server-confirmed persona before asserting denied access. No weakened access assertion or additional retry was added.
+
+**Decision:** retain category/evidence and polling fixes; publish for CI while completing independent policy assistance work. Policy activation, spending approval, model/FX/Galileo quality, hosted Gmail and Railway gates remain open. No real provider call has occurred.
+
+### ITER-011 — Policy guidance with approved, versioned passages
+
+**Date / phase:** 8 October 2026 / Phase 4
+
+**Hypothesis:** clause-aware pgvector retrieval plus mandatory governing restrictions can answer report-linked questions with inspectable citations while preserving workflow authority and policy-version alignment.
+
+**Acceptance before implementation:** pin text-embedding-3-small, dimensions, source hash and index version; retrieve only approved applicable snapshots; validate every returned identifier and exact quoted passage; keep required rules available independently of top-k; no tools or write authority for A3. Missing policy/provider/index is recoverable guidance-unavailable, never permission. Background questions remain private and revision-safe; total provider reservations share the configured hard budget. Compare held-out retrieval versus full context before any answer-quality claim; mocked citations prove only deterministic acceptance behavior.

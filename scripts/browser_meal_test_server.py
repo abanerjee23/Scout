@@ -16,6 +16,7 @@ from unloop import create_app
 from unloop.expense_worker import run_expense_once
 from unloop.worker import run_once
 
+from backend.tests.test_categories import AIR, CategoryExtractor
 from backend.tests.test_meals import TEST_LIMITS, TEST_POLICY, FakeExtractor
 
 
@@ -43,6 +44,17 @@ def main():
             }
         )
         app.state.a1_settings = TEST_LIMITS
+        app.state.meal_policy = TEST_POLICY
+
+        class RoutedExtractor:
+            def extract(self, context, documents):
+                adapter = (
+                    CategoryExtractor(AIR)
+                    if context.get("categoryOverride") == "air"
+                    else FakeExtractor({"mealType": None})
+                )
+                return adapter.extract(context, documents)
+
         stop = Event()
 
         def worker():
@@ -51,7 +63,7 @@ def main():
                 run_expense_once(
                     engine,
                     TEST_LIMITS,
-                    FakeExtractor({"mealType": None}),
+                    RoutedExtractor(),
                     TEST_POLICY,
                     SyntheticFx(),
                 )

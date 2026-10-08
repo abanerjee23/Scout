@@ -3,6 +3,7 @@
 import re
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from typing import Annotated
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Request
@@ -10,6 +11,7 @@ from pydantic import Field, model_validator
 from sqlalchemy import select
 
 from unloop.api import ApiProblem, Db, MutationOwner, Owner
+from unloop.category_fields import ALL_FIELDS, CATEGORY_FIELDS, active_fields, cabin, required
 from unloop.contracts import StrictModel
 from unloop.evidence import own_report
 from unloop.fx import currency
@@ -22,6 +24,7 @@ from unloop.models import (
     ExpenseRevision,
     ExtractionSuggestion,
 )
+from unloop.policy_registry import explain
 
 router = APIRouter(prefix="/api")
 REQUIRED = [
@@ -32,8 +35,8 @@ REQUIRED = [
     "transactionCurrency",
     "mealType",
 ]
-FIELDS = [*REQUIRED, "vatAmount"]
-FINANCIAL = {"category", "receiptDate", "originalAmount", "transactionCurrency", "mealType"}
+FIELDS = ALL_FIELDS
+FINANCIAL = set(FIELDS) - {"merchant", "vatAmount"}
 
 
 class SelectedReceipt(StrictModel):
@@ -68,6 +71,17 @@ def check_facts(facts):
             raise ValueError("Unsupported category")
         if key == "mealType" and value not in {"breakfast", "lunch", "dinner"}:
             raise ValueError("Choose Breakfast, Lunch or Dinner")
+        if key == "journeyType" and value not in {"oneWay", "return"}:
+            raise ValueError("Choose One-way or Return")
+        if key == "transportType" and value not in {"taxi", "publicTransport"}:
+            raise ValueError("Choose Taxi or Public transport")
+        if key == "businessJourney" and value not in {"yes", "no"}:
+            raise ValueError("Confirm business journey")
+        if key == "cabinClass" and cabin(value) is None:
+            raise ValueError("Unmapped cabin class")
+        if key in {"departureDate", "returnDate"}:
+            if date.fromisoformat(value).isoformat() != value:
+                raise ValueError("Travel dates must use YYYY-MM-DD")
         if key == "receiptDate":
             parsed = date.fromisoformat(value)
             if (
@@ -75,7 +89,7 @@ def check_facts(facts):
                 or not date(2000, 1, 1) <= parsed <= datetime.now(UTC).date()
             ):
                 raise ValueError("Receipt date must be an exact past/current calendar date")
-        if key in {"originalAmount", "vatAmount"}:
+        if key in {"originalAmount", "vatAmount", "penaltyAmount"}:
             if not re.fullmatch(r"[0-9]{1,9}(?:\.[0-9]{1,6})?", value):
                 raise ValueError("Amount must be a bounded decimal string")
             if Decimal(value) <= 0 and key == "originalAmount":
@@ -85,6 +99,17 @@ def check_facts(facts):
     if facts.get("vatAmount") is not None and facts.get("originalAmount") is not None:
         if Decimal(facts["vatAmount"]) > Decimal(facts["originalAmount"]):
             raise ValueError("VAT cannot exceed the full receipt total")
+
+    if facts.get("category") == "air" and facts.get("journeyType") == "return":
+        if (
+            facts.get("returnDate")
+            and facts.get("departureDate")
+            and facts["returnDate"] < facts["departureDate"]
+        ):
+            raise ValueError("Return date cannot precede departure")
+    if facts.get("penaltyAmount") and facts.get("originalAmount"):
+        if Decimal(facts["penaltyAmount"]) > Decimal(facts["originalAmount"]):
+            raise ValueError("Penalty cannot exceed receipt amount")
 
 
 def own_expense(db, owner, id, *, lock=False):
@@ -116,9 +141,14 @@ def receipt_decision(output):
     findings = output.get("documentFindings", [])
     issues = output.get("issues", [])
     eligible = (
-        len(findings) == 1
+        bool(findings)
         and findings[0].get("readable") is True
         and findings[0].get("apparentRole") == "receipt"
+        and sum(finding.get("apparentRole") == "receipt" for finding in findings) == 1
+        and all(
+            finding.get("readable") is True and finding.get("apparentRole") == "supportingDocument"
+            for finding in findings[1:]
+        )
         and output.get("resultState") in {"complete", "needsInformation", "unsupported"}
         and not any(
             issue.get("reason") in {"multipleReceipts", "unreadable"}
@@ -132,8 +162,8 @@ def receipt_decision(output):
 def ready_facts(db, item):
     return (
         receipt_eligible(db, item)
-        and item.facts.get("category") == "meals"
-        and all(item.facts.get(key) for key in REQUIRED)
+        and item.facts.get("category") in CATEGORY_FIELDS
+        and all(item.facts.get(key) for key in required(item.facts))
         and not item.issues
         and (not item.locks or item.confirmed)
     )
@@ -238,8 +268,19 @@ def question(item):
     if item.state == "unsupported":
         return {
             "field": "category",
+            "message": ("Choose Air, Meals or Ground Transport if supported by the receipt."),
+        }
+    if (
+        item.state == "needs_information"
+        and item.calculation
+        and item.calculation.get("outcome") == "Cabin evidence required"
+    ):
+        return {
+            "field": "cabinClass",
             "message": (
-                "This increment supports Meals only. Correct the category if the receipt is a Meal."
+                "Attach a receipt or booking confirmation establishing the cabin, "
+                "then rerun extraction. "
+                "A self-declaration cannot establish cabin entitlement."
             ),
         }
     if item.state == "unreadable":
@@ -255,7 +296,7 @@ def question(item):
             + issue["reason"]
             + ". Confirm the affected fact or provide clearer single-receipt evidence.",
         }
-    for field in REQUIRED:
+    for field in required(item.facts):
         if not item.facts.get(field):
             return {
                 "field": field,
@@ -272,7 +313,7 @@ def question(item):
                     ),
                 }.get(field, "Check the receipt and confirm " + field + "."),
             }
-    if not item.confirmed and any(key in item.locks for key in REQUIRED):
+    if not item.confirmed and any(key in item.locks for key in required(item.facts)):
         return {
             "field": "confirmation",
             "message": (
@@ -299,12 +340,18 @@ def view(db, item):
         "state": "needs_information"
         if item.state == "review" and not ready_facts(db, item)
         else item.state,
-        "facts": item.facts,
+        "facts": {
+            key: value for key, value in item.facts.items() if key in active_fields(item.facts)
+        },
+        "supportingDocumentIds": item.provenance.get("supportingDocumentIds", []),
         "lockedFields": item.locks,
         "provenance": item.provenance,
         "confirmed": item.confirmed,
         "issues": item.issues,
         "calculation": item.calculation if ready_facts(db, item) else None,
+        "assessment": explain(item.calculation, item.facts.get("category"))
+        if ready_facts(db, item)
+        else None,
         "failureCode": item.failure_code,
         "question": question(item)
         if receipt_eligible(db, item)
@@ -404,6 +451,11 @@ def edit_expense(id: UUID, body: ExpenseCommand, db: Db, owner: MutationOwner):
     if body.version != item.version:
         raise ApiProblem(409, "stale_revision", "This expense changed. Reload before correcting.")
     facts = {**item.facts, **body.facts}
+    category_changed = "category" in body.facts and facts.get("category") != item.facts.get(
+        "category"
+    )
+    if category_changed:
+        facts = {key: value for key, value in facts.items() if key in active_fields(facts)}
     try:
         check_facts(facts)
     except ValueError:
@@ -425,7 +477,7 @@ def edit_expense(id: UUID, body: ExpenseCommand, db: Db, owner: MutationOwner):
         body.confirmed if "confirmed" in body.model_fields_set or body.facts else item.confirmed
     )
     item.facts = facts
-    item.locks = sorted(set(item.locks) | set(body.facts))
+    item.locks = sorted((set(item.locks) | set(body.facts)) & set(active_fields(facts)))
     item.provenance = {
         **item.provenance,
         **{
@@ -438,6 +490,14 @@ def edit_expense(id: UUID, body: ExpenseCommand, db: Db, owner: MutationOwner):
         },
     }
     item.confirmed = confirmed
+    if category_changed:
+        item.provenance = {**item.provenance, "supportingDocumentIds": [], "factEvidence": {}}
+    if category_changed:
+        item.issues = [
+            issue
+            for issue in item.issues
+            if issue["field"] in {*active_fields(facts), "receipt", "documents", "classification"}
+        ]
     if confirmed:
         item.issues = [
             issue
@@ -542,4 +602,44 @@ def choose_conflicting_receipt(id: UUID, body: VersionCommand, db: Db, owner: Mu
     revise(db, item)
     enqueue(db, item, "calculate")
     refresh_conflicts(db, owner.id, [meal_slot(item)])
+    return view(db, item)
+
+
+class SupportingEvidence(StrictModel):
+    version: int = Field(ge=1)
+    documentIds: list[Annotated[UUID, Field(strict=False)]] = Field(max_length=3)
+
+
+@router.put("/expenses/{id}/supporting-evidence")
+def supporting_evidence(id: UUID, body: SupportingEvidence, db: Db, owner: MutationOwner):
+    item = own_expense(db, owner, id, lock=True)
+    if item.version != body.version:
+        raise ApiProblem(409, "stale_revision", "Reload the saved expense first.")
+    if item.facts.get("category") == "meals" and body.documentIds:
+        raise ApiProblem(
+            409, "single_receipt_required", "Meals require one final restaurant receipt."
+        )
+    ids = sorted({str(value) for value in body.documentIds})
+    documents = (
+        db.scalars(
+            select(Document)
+            .join(EvidenceLink, EvidenceLink.document_id == Document.id)
+            .where(
+                Document.session_id == owner.id,
+                EvidenceLink.report_id == item.report_id,
+                Document.id.in_(body.documentIds),
+                Document.state == "validated",
+            )
+        ).all()
+        if ids
+        else []
+    )
+    if {str(value.id) for value in documents} != set(ids) or str(item.document_id) in ids:
+        raise ApiProblem(404, "not_found", "Choose validated supporting evidence in this report.")
+    if ids == item.provenance.get("supportingDocumentIds", []):
+        return view(db, item)
+    item.provenance = {**item.provenance, "supportingDocumentIds": ids}
+    item.calculation = None
+    revise(db, item)
+    enqueue(db, item, "extract")
     return view(db, item)

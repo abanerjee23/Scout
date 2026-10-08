@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from unloop.api import ApiProblem, current_session, employee, mutation_session, resolve_session
+from unloop.api import ApiProblem, employee, locked_session, resolve_session, validate_csrf
 from unloop.evidence import bounded_validation, own_report, persist_checked, safe_filename
 from unloop.evidence_validation import InvalidDocument
 from unloop.gmail_provider import MAILBOX, GmailFailure, decode_attachment
@@ -60,7 +60,7 @@ def initial_auth(request, *, mutation=False):
         owner = resolve_session(request, db, lock=False)
         employee(owner)
         if mutation:
-            mutation_session(request, owner)
+            validate_csrf(request, owner)
         return owner.id
 
 
@@ -136,8 +136,8 @@ def connect(body: Empty, request: Request):
     initial_auth(request, mutation=True)
     state = secrets.token_urlsafe(32)
     with Session(request.app.state.engine) as db, db.begin():
-        owner = current_session(request, db)
-        mutation_session(request, owner)
+        owner = locked_session(request, db)
+        validate_csrf(request, owner)
         employee(owner)
         item = connection(db, owner)
         # A new connect invalidates all pending states and in-flight token refreshes/scans.
@@ -166,7 +166,7 @@ def callback(request: Request):
         if len(state) != 43 or len(request.query_params.getlist("state")) != 1:
             raise GmailFailure("state_invalid")
         with Session(request.app.state.engine) as db, db.begin():
-            owner = current_session(request, db)
+            owner = locked_session(request, db)
             employee(owner)
             entry = db.scalar(
                 select(GmailOAuthState)
@@ -212,7 +212,7 @@ def callback(request: Request):
                 raise GmailFailure("connection_changed")
         mailbox = adapter.profile(tokens["access_token"])
         with Session(request.app.state.engine) as db, db.begin():
-            owner = current_session(request, db)
+            owner = locked_session(request, db)
             employee(owner)
             item = connection(db, owner)
             if (
@@ -242,8 +242,8 @@ def disconnect(body: Empty, request: Request):
     initial_auth(request, mutation=True)
     token = None
     with Session(request.app.state.engine) as db, db.begin():
-        owner = current_session(request, db)
-        mutation_session(request, owner)
+        owner = locked_session(request, db)
+        validate_csrf(request, owner)
         employee(owner)
         item = connection(db, owner)
         if item.encrypted_tokens and request.app.state.gmail_settings:
@@ -298,8 +298,8 @@ def authorize_scan(report_id: UUID, body: ScanConsent, request: Request):
     configured(request)
     initial_auth(request, mutation=True)
     with Session(request.app.state.engine) as db, db.begin():
-        owner = current_session(request, db)
-        mutation_session(request, owner)
+        owner = locked_session(request, db)
+        validate_csrf(request, owner)
         report = own_report(db, owner, report_id)
         item = connection(db, owner)
         if item.status != "connected":
@@ -377,8 +377,8 @@ def scans(report_id: UUID, request: Request):
 def retry(scan_id: UUID, body: Empty, request: Request):
     initial_auth(request, mutation=True)
     with Session(request.app.state.engine) as db, db.begin():
-        owner = current_session(request, db)
-        mutation_session(request, owner)
+        owner = locked_session(request, db)
+        validate_csrf(request, owner)
         employee(owner)
         item = connection(db, owner)
         scan = db.get(GmailScan, scan_id)

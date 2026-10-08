@@ -22,10 +22,10 @@ from unloop.api import (
     Db,
     MutationOwner,
     Owner,
-    current_session,
     employee,
-    mutation_session,
+    locked_session,
     resolve_session,
+    validate_csrf,
 )
 from unloop.evidence_validation import MAX_BYTES, MAX_FILES, InvalidDocument
 from unloop.models import Document, DocumentBytes, EvidenceJob, EvidenceLink, Report
@@ -216,7 +216,7 @@ async def upload_evidence(report_id: UUID, request: Request):
     # Release the initial read transaction before receiving or parsing any file bytes.
     with Session(request.app.state.engine) as initial, initial.begin():
         owner = resolve_session(request, initial, lock=False)
-        mutation_session(request, owner)
+        validate_csrf(request, owner)
         own_report(initial, owner, report_id)
     try:
         form = await request.form(max_files=MAX_FILES, max_fields=1, max_part_size=1024)
@@ -250,8 +250,8 @@ async def upload_evidence(report_id: UUID, request: Request):
             checked.append((content, info, safe_filename(file.filename, info["mime_type"])))
         # Fresh authority and a short lock serialize dedup only after validation.
         with Session(request.app.state.engine) as db, db.begin():
-            owner = current_session(request, db)
-            mutation_session(request, owner)
+            owner = locked_session(request, db)
+            validate_csrf(request, owner)
             own_report(db, owner, report_id)
             return {"documents": persist_checked(db, owner, report_id, source, checked)}
     finally:

@@ -42,6 +42,7 @@ for (const mobile of [false, true]) test(`explicit fake A1/FX: actual PostgreSQL
   const original = await expenses.getByRole('link', { name: 'Download original receipt' }).getAttribute('href');
   expect(await (await context.request.get('http://127.0.0.1:5174' + original)).body()).toEqual(png);
   await page.getByRole('button', { name: 'Manager', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Manager', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(expenses).toHaveCount(0);
   expect((await context.request.get('http://127.0.0.1:5174' + original)).status()).toBe(403);
 });
@@ -114,4 +115,25 @@ test('real API/PG PDF context offers explicit readable fallback and byte-exact o
   const download = await downloadReady; const file = await download.path();
   expect(file).not.toBeNull(); expect(await readFile(file!)).toEqual(pdf);
   await expect(expenses.locator('#expense-originalAmount')).toHaveValue('62.00'); // explicit fake A1, not PDF extraction proof
+});
+
+test('explicit fake A1: category correction opens Air fields, evidence pauses cabin then authorized reread resolves it', async ({ page }) => {
+  await page.goto('http://127.0.0.1:5174'); await newReport(page);
+  const expenses = await addReceipt(page, 'synthetic-air-fixture.png', 'image/png', png);
+  await expect(expenses.locator('#expense-mealType')).toBeVisible();
+  await expenses.locator('#expense-category').selectOption('air');
+  await expect(expenses.locator('#expense-mealType')).toHaveCount(0);
+  await expenses.locator('#expense-journeyType').selectOption('oneWay');
+  await expenses.locator('#expense-origin').fill('LHR');
+  await expenses.locator('#expense-destination').fill('CDG');
+  await expenses.locator('#expense-departureDate').fill('2026-10-02');
+  await expenses.locator('#expense-cabinClass').selectOption('economy');
+  await expect(expenses.locator('#expense-returnDate')).toHaveCount(0);
+  await expenses.locator('#expense-confirm-facts').check();
+  await expenses.getByRole('button', { name: 'Save corrections' }).click();
+  await expect(expenses.getByText('A self-declaration cannot establish cabin entitlement.', { exact: false })).toBeVisible();
+  await expenses.getByRole('button', { name: 'Retry extraction', exact: true }).click();
+  await expect(expenses.getByText('Compliant', { exact: false })).toBeVisible();
+  await expect(expenses.locator('#expense-cabinClass')).toHaveValue('economy');
+  await expect(page.getByRole('region', { name: 'Policy sources' })).toContainText('AIR-03');
 });

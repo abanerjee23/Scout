@@ -54,14 +54,23 @@ def resolve_session(request: Request, db: Session, *, lock: bool) -> DemoSession
     return owner
 
 
-def current_session(request: Request, db: Db) -> DemoSession:
+def locked_session(request: Request, db: Session) -> DemoSession:
     return resolve_session(request, db, lock=True)
+
+
+def current_session(request: Request, db: Db) -> DemoSession:
+    return resolve_session(request, db, lock=False)
 
 
 Owner = Annotated[DemoSession, Depends(current_session)]
 
 
-def mutation_session(request: Request, owner: Owner) -> DemoSession:
+def mutation_session(request: Request, db: Db) -> DemoSession:
+    owner = resolve_session(request, db, lock=True)
+    return validate_csrf(request, owner)
+
+
+def validate_csrf(request: Request, owner: DemoSession) -> DemoSession:
     if not secrets.compare_digest(
         request.headers.get("x-csrf-token", "").encode(), owner.csrf_token.encode()
     ):
@@ -125,7 +134,7 @@ def health():
 @router.get("/readiness")
 def readiness(db: Db):
     version = db.scalar(text("SELECT version_num FROM alembic_version"))
-    if version != "0005_phase2_meals":
+    if version != "0006_phase3_categories":
         raise ApiProblem(503, "migration_required", "Apply the database migrations.")
     db.execute(select(DemoSession.id).limit(1))
     return {"service": "unloop", "database": "ready", "schemaVersion": version}
