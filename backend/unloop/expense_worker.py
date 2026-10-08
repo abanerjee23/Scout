@@ -27,7 +27,7 @@ from unloop.expenses import (
     receipt_eligible,
     refresh_conflicts,
 )
-from unloop.extraction import MODEL, PROMPT_VERSION, ExtractionFailure, observe
+from unloop.extraction import MODEL, PROMPT_VERSION, ExtractionFailure
 from unloop.fx import FxPending, saved, validate_observation
 from unloop.models import (
     DemoProfile,
@@ -40,6 +40,7 @@ from unloop.models import (
     ExtractionSuggestion,
     FxObservation,
 )
+from unloop.observability import observe
 from unloop.policy_registry import store_policy
 from unloop.provider_budget import reserve
 
@@ -553,6 +554,8 @@ def run_expense_once(engine, settings, extractor, policy, fx):
             observe(diagnostics)
     except ExtractionFailure as error:
         finish_expense(engine, claim, failure=error.code, transient=error.transient)
+        observe({"model": MODEL, "promptVersion": PROMPT_VERSION, "outcome": error.code})
     except Exception:
         finish_expense(engine, claim, failure="processing_failed", transient=True)
+        observe({"model": MODEL, "promptVersion": PROMPT_VERSION, "outcome": "processing_failed"})
     return True

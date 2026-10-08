@@ -4,11 +4,13 @@ import hashlib
 import json
 import math
 import re
+from time import monotonic
 
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from unloop.models import PolicyChunk
+from unloop.observability import observe
 from unloop.policy_registry import CHECKLISTS, store_policy
 from unloop.provider_budget import reserve
 
@@ -44,6 +46,7 @@ class OpenAIEmbedder:
             or sum(len(value.encode()) for value in texts) > self.settings.input_tokens
         ):
             raise GuidanceUnavailable("embedding_input_limit")
+        started = monotonic()
         try:
             with OpenAI(
                 api_key=self.settings.key,
@@ -59,8 +62,22 @@ class OpenAIEmbedder:
                     raise GuidanceUnavailable("invalid_embedding")
                 for value in ordered:
                     vector(value.embedding)
+                observe(
+                    {
+                        "model": EMBED_MODEL,
+                        "schemaVersion": "embeddings-1",
+                        "latencyMs": int((monotonic() - started) * 1000),
+                        "inputTokens": result.usage.prompt_tokens,
+                        "outputTokens": 0,
+                        "outcome": "embedded",
+                    },
+                    operation="embedding",
+                )
                 return [value.embedding for value in ordered]
         except Exception:
+            observe(
+                {"model": EMBED_MODEL, "outcome": "embedding_unavailable"}, operation="embedding"
+            )
             raise GuidanceUnavailable("embedding_unavailable") from None
 
 

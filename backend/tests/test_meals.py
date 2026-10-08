@@ -914,44 +914,6 @@ def test_fx_observation_boundary_rejects_wrong_date_pair_source_and_rate():
             validate_observation({**base, **update}, "EUR", date(2026, 10, 1))
 
 
-def test_galileo_metadata_path_never_receives_receipts_conversations_or_credentials(monkeypatch):
-    import galileo
-    from unloop.extraction import _observe
-
-    captured = {}
-
-    class Logger:
-        def __init__(self, **kwargs):
-            pass
-
-        def start_trace(self, **kwargs):
-            captured.update(kwargs)
-
-        def conclude(self, **kwargs):
-            captured.update(kwargs)
-
-        def flush(self, **kwargs):
-            pass
-
-    monkeypatch.setattr(galileo, "GalileoLogger", Logger)
-    for key in ["GALILEO_API_KEY", "GALILEO_PROJECT", "GALILEO_LOG_STREAM"]:
-        monkeypatch.setenv(key, "synthetic")
-    assert (
-        _observe(
-            {
-                "model": "gpt-6-luna",
-                "outcome": "complete",
-                "receipt": "private receipt",
-                "conversation": "private words",
-                "password": "private credential",
-            }
-        )
-        == "sent"
-    )
-    assert "private" not in str(captured)
-    assert set(captured["metadata"]) == {"model", "outcome"}
-
-
 def test_model_configuration_cannot_infer_budget_from_key_presence():
     assert A1Settings.load({"OPENAI_API_KEY": "synthetic"}) is None
     with pytest.raises(ValueError):

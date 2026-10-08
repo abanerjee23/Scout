@@ -5,7 +5,7 @@ import os
 SERVICES = {
     "PostgreSQL (Phase 1A)": ["DATABASE_URL"],
     "OpenAI (Phase 2)": ["OPENAI_API_KEY"],
-    "Galileo (Phase 2)": ["GALILEO_API_KEY", "GALILEO_PROJECT", "GALILEO_LOG_STREAM"],
+    "Arize AX": ["ARIZE_API_KEY", "ARIZE_SPACE_ID", "ARIZE_PROJECT_NAME"],
     "FX fallback (Phase 2)": ["OPEN_EXCHANGE_RATES_APP_ID"],
 }
 

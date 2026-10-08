@@ -5,13 +5,16 @@ description = "Unloop expense preparation proof of concept"
 requires-python = ">=3.12,<3.14"
 dependencies = [
     "alembic>=1.15,<2",
+    "arize==8.58.0",
     "cryptography>=44,<47",
     "fastapi>=0.115,<1",
-    "galileo==2.6.0",
     "httpx>=0.28,<1",
     "iso4217==1.16.20260101",
     "itsdangerous>=2.2,<3",
     "openai-agents==0.23.1",
+    "openinference-semantic-conventions==0.1.41",
+    "opentelemetry-exporter-otlp-proto-http==1.45.1",
+    "opentelemetry-sdk==1.45.1",
     "pillow>=11,<13",
     "psycopg[binary]>=3.2,<4",
     "pydantic>=2.10,<3",

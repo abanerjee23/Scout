@@ -3,7 +3,6 @@
 import asyncio
 import base64
 import json
-import os
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from time import monotonic
@@ -225,80 +224,3 @@ class AgentsExtractor:
                 max_turns=1,
                 run_config=RunConfig(tracing_disabled=True, trace_include_sensitive_data=False),
             )
-
-
-def _observe(diagnostics):
-    """Galileo only receives fixed metadata, never raw SDK traces/evidence/conversation."""
-    if not (
-        os.environ.get("GALILEO_API_KEY")
-        and os.environ.get("GALILEO_PROJECT")
-        and os.environ.get("GALILEO_LOG_STREAM")
-    ):
-        return "unconfigured"
-    allowed = {
-        key: diagnostics[key]
-        for key in [
-            "model",
-            "promptVersion",
-            "schemaVersion",
-            "latencyMs",
-            "inputTokens",
-            "outputTokens",
-            "estimatedCostUsd",
-            "costBasis",
-            "outcome",
-        ]
-        if key in diagnostics
-    }
-    try:
-        from galileo import GalileoLogger
-
-        logger = GalileoLogger(
-            project=os.environ["GALILEO_PROJECT"], log_stream=os.environ["GALILEO_LOG_STREAM"]
-        )
-        logger.start_trace(input="[receipt content omitted]", name="A1 outcome", metadata=allowed)
-        logger.conclude(output="[structured facts omitted]")
-        logger.flush(on_error=lambda _: None)
-        return "sent"
-    except Exception:
-        return "unavailable"
-
-
-def _observation_child(diagnostics, queue):
-    import contextlib
-
-    with (
-        open(os.devnull, "w") as sink,
-        contextlib.redirect_stdout(sink),
-        contextlib.redirect_stderr(sink),
-    ):
-        queue.put(_observe(diagnostics))
-
-
-def observe(diagnostics):
-    """Bound Galileo I/O independently; suppress SDK logs and all raw exception output."""
-    if not all(
-        os.environ.get(key) for key in ["GALILEO_API_KEY", "GALILEO_PROJECT", "GALILEO_LOG_STREAM"]
-    ):
-        return "unconfigured"
-    import multiprocessing
-
-    context = multiprocessing.get_context("spawn")
-    queue = context.Queue()
-    child = context.Process(target=_observation_child, args=(diagnostics, queue), daemon=True)
-    try:
-        child.start()
-        child.join(timeout=3)
-        if child.is_alive():
-            child.kill()
-            child.join(timeout=1)
-            return "timeout"
-        try:
-            state = queue.get_nowait()
-            return state if state in {"sent", "unavailable", "unconfigured"} else "unavailable"
-        except Exception:
-            return "unavailable"
-    except Exception:
-        return "unavailable"
-    finally:
-        queue.close()

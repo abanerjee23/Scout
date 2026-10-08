@@ -17,8 +17,9 @@ from unloop.api import ApiProblem, Db, MutationOwner, Owner
 from unloop.contracts import StrictModel
 from unloop.evidence import own_report
 from unloop.expenses import own_expense
-from unloop.extraction import MODEL, ExtractionFailure, observe
+from unloop.extraction import MODEL, ExtractionFailure
 from unloop.models import DemoSession, Expense, MealPolicyVersion, PolicyQuestion
+from unloop.observability import observe
 from unloop.policy_index import (
     GuidanceUnavailable,
     OpenAIEmbedder,
@@ -352,5 +353,18 @@ def run_question_once(engine, settings, answerer=None, embedder=None):
             item.state, item.failure_code, item.result = "stale", "stale_question", None
         item.lease_token = item.lease_until = None
     if diagnostics:
-        observe(diagnostics)
+        observe(
+            {
+                **diagnostics,
+                "policyVersion": source["version"],
+                "mode": mode,
+                **({"outcome": failure} if failure else {}),
+            },
+            operation="policy",
+        )
+    elif failure:
+        observe(
+            {"model": MODEL, "promptVersion": PROMPT_VERSION, "outcome": failure},
+            operation="policy",
+        )
     return True

@@ -4,7 +4,7 @@
 
 Updated: 7 October 2026  
 Owner: Abhinav  
-Status: Phase 1A verified locally and on live Supabase, merged in PR #1. Phase 1B shared evidence/jobs passed hosted/live gates and merged in PR #2. Phase 1C Gmail/early deployment packaging passed local checks; actual Gmail/Railway gates pending. Phases 2–6 remain design. See [current ledger](docs/product/BUILD_STATUS.md).
+Status: Local expense preparation, policy guidance, submission, partial approvals and approved-data API are implemented and tested. Reviewed synthetic policy is active locally; Arize AX integration is implemented. Actual model/Arize/Gmail/Railway quality and hosted acceptance remain pending. See [current ledger](docs/product/BUILD_STATUS.md).
 
 [Vision](Unloop_Vision.md) governs product behaviour; [build plan](BUILD_PLAN.md) governs sequencing. This revision replaces Supabase employee/manager login, manual-only intake and required employee-led post-submission splitting. Previous designs and rendered diagrams are in [archive](archive/README.md). The map below reflects current responsibilities, not completed integrations.
 
@@ -12,7 +12,7 @@ The user explicitly selected FastAPI/Python during Phase 1A, superseding the Fla
 
 ## 1. System shape
 
-One React interface, one Python/FastAPI codebase, a background worker, four bounded AI specialists and one PostgreSQL database with pgvector. Railway runs the web service and worker as separate processes sharing business rules. Supabase hosts PostgreSQL; employee/manager Supabase Auth is not used in the current demo. Original document bytes stay in PostgreSQL, without separate Supabase Storage buckets.
+One React interface, one Python/FastAPI codebase, a background worker, four bounded specialist responsibilities and one PostgreSQL database with pgvector. Railway runs the web service and worker as separate processes sharing business rules. Supabase hosts PostgreSQL; employee/manager Supabase Auth is not used in the current demo. Original document bytes stay in PostgreSQL, without separate Supabase Storage buckets.
 
 ```mermaid
 flowchart TD
@@ -31,7 +31,7 @@ flowchart TD
     A3 --> P
     P --> DB
     W --> FX[Historical FX adapters]
-    W -. minimized traces .-> OBS[Galileo diagnostics and evals]
+    W -. minimized traces .-> OBS[Arize AX telemetry and evaluation experiments]
     API --> OUT[Read-only approved release API]
     UI -. user-reviewed context .-> T[Optional Teams launch]
 ```
@@ -43,20 +43,20 @@ Code validates every model result and owns writes, arithmetic, eligibility and a
 | Layer | Current design |
 |---|---|
 | UI | React, TypeScript and Vite; persona/report workspace plus separate synthetic Meal preview |
-| Backend | Python/FastAPI; sessions/personas, confirmed reports, evidence uploads/private originals and health/readiness; later workflows unimplemented |
-| Agent orchestration | OpenAI Agents SDK, code-controlled specialist execution; not yet integrated |
-| Models | Luna named baseline, exact available API identifier to be pinned; Sol only after measured comparison, no automatic upgrade |
+| Backend | Python/FastAPI; private reports/evidence, leased preparation/guidance jobs, explicit submission, manager review and immutable releases; tested locally |
+| Agent orchestration | OpenAI Agents SDK for no-tool A1/A3 execution; deterministic A2 policy calculations and A4 clarification templates |
+| Models | Current implementation pins gpt-6-luna; owner selected gpt-6.1-sol on 8 October, with migration/cost controls next in the local backlog; no automatic upgrade |
 | Database/files | Supabase PostgreSQL; original receipt bytes separated from report-list rows; Phase 1A Supabase persistence verified; Phase 1B isolated live evidence verified at `599a391` |
 | Retrieval | pgvector, approved clause-linked snapshots; small embedding baseline pinned with index configuration |
 | Sessions/personas | Implemented server-owned isolated demo sessions and Employee/Manager toggle; no app login/logout |
 | Gmail | Existing user-confirmed GCP setup for aban.hackathon@gmail.com; adapter/callback/scan locally tested; real consent/bytes and hosted deployment remain unverified |
-| Jobs | Leased PostgreSQL evidence-validation jobs and Python worker; 3 attempts/30s leases/15s validation deadline, no extraction yet |
+| Jobs | Leased PostgreSQL evidence/extraction/guidance/Gmail queues; bounded attempts, revision checks and recovery; shared paid-call reservations |
 | FX | Saved observation → Frankfurter pinned to ECB → Open Exchange Rates fallback under accepted date/basis rules |
-| Diagnostics/evals | Existing project-specific Galileo choice retained; deterministic tests use pytest |
+| Diagnostics/evals | Arize AX: bounded content-free OpenInference/OTLP spans and frozen synthetic evaluation experiments; deterministic regressions use pytest |
 | Hosting | Railway web service serving built React/FastAPI and a separate worker |
 | Libraries | Pydantic validation, SQLAlchemy/Alembic migrations and pytest; add dependencies when integrations use them |
 
-Project-specific Galileo remains the earlier agreed baseline; changing it to the general preferred promptfoo/Langfuse/Phoenix stack would be a separate tooling decision, not a hidden consequence of workflow changes. Preserve one diagnostic pipeline per run and measure quality/cost before model changes.
+On 8 October 2026 Abhinav selected Arize AI for evaluations and observability, superseding Galileo. The local integration uses Arize AX; account credentials and live ingestion are separate acceptance steps. Preserve one diagnostic pipeline per operation and the existing frozen release gates. [Integration](docs/integrations/ARIZE.md).
 
 ## 3. Demo ownership and authority
 
@@ -164,7 +164,7 @@ Execution is at least once. Idempotent writes and revision/source checks prevent
 | Missing policy coverage | Explain limitation; do not fabricate permission or denial |
 | Genuine unresolved policy ambiguity | Labelled simulated T&E inbox item; no actual specialist or approval |
 | Model/FX/retrieval outage | Bounded recovery; separate technical failure from policy judgment |
-| Galileo outage | Retain business records and minimal operational metadata; surface monitoring failure |
+| Arize outage | Retain business records and minimal operational metadata; surface monitoring failure |
 | Teams unavailable | Preserve in-app question and copyable context; explicit app resolution still required |
 
 Load report fields without file bytes, fetch selected evidence on demand and prioritize interactive questions over bulk jobs where possible. Measure report/receipt opening separately from extraction/Q&A latency.
@@ -181,7 +181,7 @@ Export stable reportId, expenseId, approvalReleaseId, approved revision, merchan
 
 ## 12. Evaluation, iteration and readiness
 
-Trace specialist runs from first live execution with model/prompt/schema/policy versions, outcome, latency/tokens/cost and minimized payloads. Galileo diagnostics are not the authoritative financial record. Keep deterministic tests separate from model-quality evals, and avoid duplicate tracing pipelines. The general preferred tooling stack does not silently override this project's earlier selection.
+Trace extraction, policy answers and embeddings with validated version/outcome/timing/token metadata and supplied cost estimates. Arize AX provides the runtime telemetry and synthetic experiment backend; deterministic financial records and release scorers retain their existing authority. Keep model-quality evidence distinct from engineering checks and avoid duplicate tracing pipelines.
 
 Use labelled development/held-out examples, critical hallucination/injection cases, policy-source tests, session isolation, stale job and partial approval concurrency checks. Compare RAG against full-policy context and stronger models only on diagnosed errors. [Build gates](BUILD_PLAN.md#8-evaluation-and-release-gates) set proposed thresholds; none is an achieved production claim.
 
