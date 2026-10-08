@@ -9,9 +9,10 @@ const fieldNames: Record<string, string> = { merchant: 'Merchant', receiptDate: 
 type Props = { report: Report; session: DemoSession; refresh: number; onError: (error: unknown) => void };
 export default function ExpensePanel({ report, session, refresh, onError }: Props) {
   const [rows, setRows] = useState<Expense[]>([]), [documents, setDocuments] = useState<Evidence[]>([]);
-  const [selected, setSelected] = useState<string | null>(null), [document, setDocument] = useState('');
+  const [selected, setSelected] = useState<string | null>(new URLSearchParams(window.location.search).get('expense')), [document, setDocument] = useState('');
   const [facts, setFacts] = useState<Record<string, string | null>>({}), [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState(''), [busy, setBusy] = useState(false), [loading, setLoading] = useState(true), [reload, setReload] = useState(0), [total, setTotal] = useState('0.00');
+  const [reused, setReused] = useState<{ reportId: string; expenseId: string } | null>(null);
   const editor = useRef<HTMLDivElement>(null), announced = useRef('');
   const active = rows.find(row => row.id === selected);
   useEffect(() => {
@@ -43,7 +44,7 @@ export default function ExpensePanel({ report, session, refresh, onError }: Prop
   function documentElementFocus(field: string) { window.document.getElementById(`expense-${field}`)?.focus({ preventScroll: true }); }
   async function action(path: string, body: unknown, method = 'POST') {
     setBusy(true); setError('');
-    try { const result = await api<{ expense?: Expense } & Partial<Expense>>(path, { method, csrf: session.csrfToken, body }); if (result.expense) { setSelected(result.expense.id); if (result.expense.reportId !== report.id) setError('This original already has an expense in another report. No second claim was created.'); } setReload(value => value + 1); }
+    try { const result = await api<{ expense?: Expense } & Partial<Expense>>(path, { method, csrf: session.csrfToken, body }); if (result.expense) { if (result.expense.reportId !== report.id) { setReused({ reportId: result.expense.reportId, expenseId: result.expense.id }); } else { setSelected(result.expense.id); setReused(null); } } setReload(value => value + 1); }
     catch (problem) { setError(problem instanceof Error ? problem.message : 'Expense update failed.'); if (problem instanceof ApiError && [401, 403].includes(problem.status)) onError(problem); }
     finally { setBusy(false); }
   }
@@ -51,6 +52,7 @@ export default function ExpensePanel({ report, session, refresh, onError }: Prop
   const receipt = documents.find(item => item.id === active?.documentId);
   return <section className="w-expenses" aria-label="Expense workspace">
     <h3>Expenses</h3><p className="w-muted">Evidence validation is not extraction. Select a retained receipt to prepare one expense. Model processing requires privately configured, reviewed budgets.</p>
+    {reused && <p role="status">This original already belongs to an expense in another report. No second expense or claim was created. <a href={`/?report=${encodeURIComponent(reused.reportId)}&expense=${encodeURIComponent(reused.expenseId)}`}>Open existing expense</a></p>}
     {loading && <p role="status">Loading saved expenses…</p>}
     {error && <p role="alert">{error} <button onClick={() => setReload(value => value + 1)}>Reload saved data</button></p>}
     <label htmlFor="expense-receipt-select">Selected receipt</label><select id="expense-receipt-select" value={document} onChange={event => setDocument(event.target.value)} disabled={busy}><option value="">Choose validated evidence</option>{documents.filter(item => item.state === 'validated').map(item => <option key={item.id} value={item.id}>{item.filename}</option>)}</select>
@@ -59,7 +61,7 @@ export default function ExpensePanel({ report, session, refresh, onError }: Prop
     <ul className="w-expense-lines">{rows.map(row => <li key={row.id}><button onClick={() => setSelected(row.id)} aria-pressed={row.id === selected}>{row.facts.merchant || 'Receipt awaiting facts'} · {labels[row.state] || row.state}</button>{row.calculation && <span> Claim £{row.calculation.claimGbp}</span>}</li>)}</ul>
     <p>Prepared draft total: £{total} — not submitted or approved.</p>
     {active && <div className="w-expense-editor" ref={editor}>
-      <div className="w-receipt-view"><h4>Original receipt</h4>{receipt?.mimeType.startsWith('image/') ? <img src={active.originalUrl.replace('/original', '/preview')} alt="Selected original receipt"/> : receipt?.mimeType === 'application/pdf' ? <iframe sandbox="" src={active.originalUrl.replace('/original', '/preview')} title="Selected original PDF receipt"/> : <p>Original retained.</p>}<a href={active.originalUrl}>Download original receipt</a></div>
+      <div className="w-receipt-view"><h4>Original receipt</h4>{receipt?.mimeType.startsWith('image/') ? <img src={active.originalUrl.replace('/original', '/preview')} alt="Selected original receipt"/> : receipt?.mimeType === 'application/pdf' ? <p>PDF originals are retained unchanged. Inline PDF viewing is unavailable here; download the original PDF to inspect it in your browser or PDF reader beside these facts.</p> : <p>Original retained.</p>}<a href={active.originalUrl}>Download original receipt</a></div>
       <form onSubmit={save} aria-label="Correct expense facts"><h4>{labels[active.state] || active.state}</h4>{active.question && <p className="w-astra-message">Astra: {active.question.message}</p>}{active.failureCode && <p role="status">{active.failureCode}. Your original and saved corrections are retained.</p>}
         {Object.entries(fieldNames).map(([key, label]) => <div key={key}><label htmlFor={`expense-${key}`}>{label}{active.lockedFields.includes(key) ? ' · human locked' : ''}</label>{['category', 'mealType'].includes(key) ? <select id={`expense-${key}`} value={facts[key] ?? ''} onChange={event => { setFacts(previous => ({ ...previous, [key]: event.target.value || null })); setConfirmed(false); }} disabled={busy || (key === 'mealType' && facts.category !== 'meals')}><option value="">Confirm from receipt</option>{(key === 'category' ? ['meals', 'air', 'groundTransport'] : ['breakfast', 'lunch', 'dinner']).map(option => <option key={option} value={option}>{option}</option>)}</select> : <input id={`expense-${key}`} type={key === 'receiptDate' ? 'date' : 'text'} value={facts[key] ?? ''} maxLength={200} onChange={event => { setFacts(previous => ({ ...previous, [key]: event.target.value || null })); setConfirmed(false); }} disabled={busy}/>}</div>)}
         <label><input id="expense-confirm-facts" type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} disabled={busy}/>I checked these facts against the original receipt, including uncertainty, and this is one final restaurant receipt.</label>

@@ -17,6 +17,7 @@ from unloop.models import (
     Document,
     EvidenceLink,
     Expense,
+    ExpenseCalculation,
     ExpenseJob,
     ExpenseRevision,
     ExtractionSuggestion,
@@ -95,6 +96,87 @@ def own_expense(db, owner, id, *, lock=False):
     return item
 
 
+def receipt_eligible(db, item):
+    decision = item.provenance.get("receiptEligibility")
+    if decision is not None:
+        return decision.get("eligible") is True
+    # Previously persisted suggestions remain authoritative evidence of the check,
+    # rather than inferring eligibility from transient state or fact strings.
+    suggestion = db.scalar(
+        select(ExtractionSuggestion)
+        .join(ExpenseJob, ExtractionSuggestion.job_id == ExpenseJob.id)
+        .where(ExpenseJob.expense_id == item.id)
+        .order_by(ExtractionSuggestion.created_at.desc())
+        .limit(1)
+    )
+    return bool(suggestion and receipt_decision(suggestion.output)["eligible"])
+
+
+def receipt_decision(output):
+    findings = output.get("documentFindings", [])
+    issues = output.get("issues", [])
+    eligible = (
+        len(findings) == 1
+        and findings[0].get("readable") is True
+        and findings[0].get("apparentRole") == "receipt"
+        and output.get("resultState") in {"complete", "needsInformation"}
+        and not any(
+            issue.get("reason") in {"multipleReceipts", "unreadable"}
+            or issue.get("field") in {"receipt", "documents"}
+            for issue in issues
+        )
+    )
+    return {"eligible": eligible, "source": "extraction", "jobId": output.get("jobId")}
+
+
+def ready_facts(db, item):
+    return (
+        receipt_eligible(db, item)
+        and item.facts.get("category") == "meals"
+        and all(item.facts.get(key) for key in REQUIRED)
+        and not item.issues
+        and (not item.locks or item.confirmed)
+    )
+
+
+def meal_slot(item):
+    return (
+        (item.facts.get("receiptDate"), item.facts.get("mealType"))
+        if item.facts.get("category") == "meals"
+        else None
+    )
+
+
+def refresh_conflicts(db, owner_id, slots):
+    """Owner lock held by caller. Restore saved prerequisite state, never call a provider."""
+    slots = {slot for slot in slots if slot and all(slot)}
+    rows = db.scalars(select(Expense).where(Expense.session_id == owner_id)).all()
+    for slot in slots:
+        members = [row for row in rows if meal_slot(row) == slot]
+        candidates = [row for row in members if row.state != "excluded" and ready_facts(db, row)]
+        for row in members:
+            if row in candidates and len(candidates) > 1:
+                if row.state != "conflict":
+                    row.provenance = {
+                        **row.provenance,
+                        "conflictBasis": {
+                            "state": row.state,
+                            "calculation": row.calculation,
+                            "revisionId": str(row.revision_id),
+                        },
+                    }
+                row.state, row.calculation = "conflict", None
+            elif row.state == "conflict":
+                basis = row.provenance.get("conflictBasis", {})
+                if basis.get("revisionId") == str(row.revision_id):
+                    row.state, row.calculation = basis["state"], basis.get("calculation")
+                else:
+                    row.state, row.calculation = "needs_information", None
+                row.provenance = {
+                    key: value for key, value in row.provenance.items() if key != "conflictBasis"
+                }
+
+
 def snapshot(db, item):
     db.add(
         ExpenseRevision(
@@ -116,9 +198,15 @@ def snapshot(db, item):
     db.flush()
 
 
-def revise(db, item):
+def revise(db, item, *, arithmetic_source=None):
     item.version += 1
     item.revision_id = uuid4()
+    if arithmetic_source is not None:
+        item.calculation = {
+            **item.calculation,
+            "expenseRevisionId": str(item.revision_id),
+            "derivation": {"kind": "reused_arithmetic", "sourceRevisionId": arithmetic_source},
+        }
     snapshot(db, item)
 
 
@@ -208,15 +296,25 @@ def view(db, item):
         "documentId": str(item.document_id),
         "version": item.version,
         "revisionId": str(item.revision_id),
-        "state": item.state,
+        "state": "needs_information"
+        if item.state == "review" and not ready_facts(db, item)
+        else item.state,
         "facts": item.facts,
         "lockedFields": item.locks,
         "provenance": item.provenance,
         "confirmed": item.confirmed,
         "issues": item.issues,
-        "calculation": item.calculation,
+        "calculation": item.calculation if ready_facts(db, item) else None,
         "failureCode": item.failure_code,
-        "question": question(item),
+        "question": question(item)
+        if receipt_eligible(db, item)
+        else {
+            "field": "receipt",
+            "message": (
+                "Receipt eligibility is unresolved. Provide clearer single-receipt evidence "
+                "or retry authorized extraction; confirming facts alone cannot resolve it."
+            ),
+        },
         "originalUrl": f"/api/documents/{item.document_id}/original",
         "suggestion": None
         if suggestion is None
@@ -284,7 +382,7 @@ def list_expenses(report_id: UUID, db: Db, owner: Owner):
         (
             Decimal(row.calculation["claimGbp"])
             for row in rows
-            if row.state == "review" and row.calculation
+            if row.state == "review" and row.calculation and ready_facts(db, row)
         ),
         Decimal("0.00"),
     )
@@ -321,6 +419,11 @@ def edit_expense(id: UUID, body: ExpenseCommand, db: Db, owner: MutationOwner):
     ):
         return view(db, item)
     previous = item.calculation
+    previous_revision = str(item.revision_id)
+    previous_slot = meal_slot(item)
+    confirmed = (
+        body.confirmed if "confirmed" in body.model_fields_set or body.facts else item.confirmed
+    )
     item.facts = facts
     item.locks = sorted(set(item.locks) | set(body.facts))
     item.provenance = {
@@ -334,23 +437,37 @@ def edit_expense(id: UUID, body: ExpenseCommand, db: Db, owner: MutationOwner):
             for key in body.facts
         },
     }
-    item.confirmed = body.confirmed
-    if body.confirmed:
+    item.confirmed = confirmed
+    if confirmed:
         item.issues = [
             issue
             for issue in item.issues
             if issue["reason"] in {"multipleReceipts", "unreadable"}
+            or issue["field"] in {"receipt", "documents"}
             or issue["field"] not in body.facts
         ]
-    if changed & FINANCIAL or body.excluded or not body.confirmed:
+    if changed & FINANCIAL or body.excluded or not confirmed:
         item.calculation = None
-    revise(db, item)
+    reuse = (
+        previous
+        and not body.excluded
+        and not changed & FINANCIAL
+        and confirmed
+        and ready_facts(db, item)
+    )
+    revise(db, item, arithmetic_source=previous_revision if reuse else None)
     if body.excluded:
         item.state = "excluded"
-    elif previous and not changed & FINANCIAL and body.confirmed:
+    elif reuse:
+        db.add(
+            ExpenseCalculation(
+                revision_id=item.revision_id, result=item.calculation, created_at=datetime.now(UTC)
+            )
+        )
         item.state = "review"
     else:
         enqueue(db, item, "calculate")
+    refresh_conflicts(db, owner.id, [previous_slot, meal_slot(item)])
     return view(db, item)
 
 
@@ -359,8 +476,13 @@ def recheck_expense(id: UUID, body: VersionCommand, db: Db, owner: MutationOwner
     item = own_expense(db, owner, id, lock=True)
     if body.version != item.version:
         raise ApiProblem(409, "stale_revision", "Reload the saved expense first.")
+    if item.state == "excluded":
+        raise ApiProblem(
+            409, "excluded_candidate", "Restore this candidate explicitly before processing."
+        )
     revise(db, item)
     enqueue(db, item, "calculate")
+    refresh_conflicts(db, owner.id, [meal_slot(item)])
     return view(db, item)
 
 
@@ -369,6 +491,10 @@ def rerun_expense(id: UUID, body: VersionCommand, request: Request, db: Db, owne
     item = own_expense(db, owner, id, lock=True)
     if body.version != item.version:
         raise ApiProblem(409, "stale_revision", "Reload the saved expense first.")
+    if item.state == "excluded":
+        raise ApiProblem(
+            409, "excluded_candidate", "Restore this candidate explicitly before processing."
+        )
     if request.app.state.a1_settings is None:
         raise ApiProblem(
             503,
@@ -389,12 +515,21 @@ def choose_conflicting_receipt(id: UUID, body: VersionCommand, db: Db, owner: Mu
         raise ApiProblem(
             409, "stale_revision", "Reload and complete the receipt date and meal type."
         )
+    if item.state != "conflict" or not ready_facts(db, item):
+        raise ApiProblem(
+            409, "not_selectable", "Choose a supported eligible Meal in a current conflict."
+        )
     others = db.scalars(
         select(Expense).where(
             Expense.session_id == owner.id, Expense.id != item.id, Expense.state != "excluded"
         )
     ).all()
-    for other in others:
+    peers = [
+        other for other in others if meal_slot(other) == meal_slot(item) and ready_facts(db, other)
+    ]
+    if not peers:
+        raise ApiProblem(409, "not_selectable", "This Meal no longer has an eligible conflict.")
+    for other in peers:
         if (
             all(other.facts.get(key) == item.facts[key] for key in ["receiptDate", "mealType"])
             and other.facts.get("category") == "meals"
@@ -403,4 +538,5 @@ def choose_conflicting_receipt(id: UUID, body: VersionCommand, db: Db, owner: Mu
             revise(db, other)
     revise(db, item)
     enqueue(db, item, "calculate")
+    refresh_conflicts(db, owner.id, [meal_slot(item)])
     return view(db, item)

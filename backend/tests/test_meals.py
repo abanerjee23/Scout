@@ -207,7 +207,13 @@ def test_locked_human_corrections_survive_rerun_and_only_dependencies_change(
         headers=headers,
         json={"version": 2, "facts": {"merchant": "Corrected Merchant"}, "confirmed": True},
     ).json()
-    assert merchant["calculation"] == saved["calculation"]
+    assert {
+        key: value
+        for key, value in merchant["calculation"].items()
+        if key not in {"expenseRevisionId", "derivation"}
+    } == {key: value for key, value in saved["calculation"].items() if key != "expenseRevisionId"}
+    assert merchant["calculation"]["expenseRevisionId"] == merchant["revisionId"]
+    assert merchant["calculation"]["derivation"]["sourceRevisionId"] == saved["revisionId"]
     client.app.state.a1_settings = TEST_LIMITS
     rerun = client.post(f"/api/expenses/{item['id']}/extract", headers=headers, json={"version": 3})
     assert rerun.status_code == 200
@@ -285,6 +291,18 @@ def test_stale_job_and_expired_lease_cannot_write(client, postgres, meal):
     assert changed.status_code == 200
     assert finish_expense(postgres[1], old, calculation={"claimGbp": "999"}, policy=TEST_POLICY)
     assert client.get(f"/api/expenses/{item['id']}").json()["calculation"] is None
+    assert run(postgres)
+    current = client.get(f"/api/expenses/{item['id']}").json()
+    assert current["calculation"] is None  # stale extraction never established receipt eligibility
+    client.app.state.a1_settings = TEST_LIMITS
+    assert (
+        client.post(
+            f"/api/expenses/{item['id']}/extract",
+            headers=headers,
+            json={"version": current["version"]},
+        ).status_code
+        == 200
+    )
     assert run(postgres)
     assert client.get(f"/api/expenses/{item['id']}").json()["calculation"]["claimGbp"] == "50.00"
     assert not finish_expense(postgres[1], old)
@@ -969,3 +987,267 @@ def test_release_scorer_counts_missing_invalid_outputs_and_rejects_foreign_evide
         assert result["requiredFieldExact"] == result["readableReviewable"] == 0
     raw = output({"jobId": "job", "expenseRevisionId": "revision"}, {"id": "foreign"})
     assert score({"synthetic": raw}, [case])["schemaValid"] == 0
+
+
+class PayloadExtractor(FakeExtractor):
+    def __init__(self, change, facts=None):
+        super().__init__(facts)
+        self.change = change
+
+    def extract(self, context, documents):
+        raw, diagnostics = super().extract(context, documents)
+        self.change(raw)
+        return raw, diagnostics
+
+
+class SpyFx:
+    def __init__(self):
+        self.calls = []
+
+    def fetch(self, code, day):
+        self.calls.append((code, day))
+        return {
+            "currency": code,
+            "date": day.isoformat(),
+            "provider": "ecb",
+            "rate": "0.8",
+            "source": "https://api.frankfurter.dev/v2/providers/ecb",
+        }
+
+
+@pytest.mark.parametrize(
+    "state,readable,role,reason",
+    [
+        ("needsInformation", False, "receipt", None),
+        ("needsInformation", True, "supportingDocument", None),
+        ("couldNotRead", True, "receipt", None),
+        ("needsInformation", True, "receipt", "multipleReceipts"),
+    ],
+)
+def test_receipt_blockers_survive_recheck_and_checkbox_only_confirmation(
+    client, postgres, meal, state, readable, role, reason
+):
+    _, headers, _, item = meal
+    fx = SpyFx()
+
+    def change(raw):
+        raw["resultState"] = state
+        raw["documentFindings"][0].update(readable=readable, apparentRole=role)
+        if reason:
+            raw["issues"] = [{"field": "receipt", "reason": reason, "evidenceRefs": []}]
+
+    assert run(postgres, PayloadExtractor(change, {"transactionCurrency": "EUR"}), fx=fx)
+    for action in ["recheck", "confirm"]:
+        current = client.get(f"/api/expenses/{item['id']}").json()
+        assert current["calculation"] is None and current["state"] != "review"
+        assert current["provenance"]["receiptEligibility"]["eligible"] is False
+        path = f"/api/expenses/{item['id']}" + ("/recheck" if action == "recheck" else "")
+        command = {"version": current["version"]}
+        if action == "confirm":
+            command.update(facts=current["facts"], confirmed=True)
+        response = (client.post if action == "recheck" else client.patch)(
+            path, headers=headers, json=command
+        )
+        assert response.status_code == 200
+        assert run(postgres, fx=fx)
+    assert client.get(f"/api/expenses/{item['id']}").json()["calculation"] is None
+    assert fx.calls == []
+    # A fresh eligible receipt extraction, not a checkbox, may resolve the document decision.
+    client.app.state.a1_settings = TEST_LIMITS
+    current = client.get(f"/api/expenses/{item['id']}").json()
+    assert (
+        client.post(
+            f"/api/expenses/{item['id']}/extract",
+            headers=headers,
+            json={"version": current["version"]},
+        ).status_code
+        == 200
+    )
+    assert run(postgres, FakeExtractor({"transactionCurrency": "EUR"}), fx=fx)
+    assert client.get(f"/api/expenses/{item['id']}").json()["state"] == "review"
+    assert len(fx.calls) == 1
+
+
+@pytest.mark.parametrize(
+    "vat_state,mixed", [("notFound", False), ("ambiguous", False), ("ambiguous", True)]
+)
+def test_optional_vat_is_blank_nonblocking_but_required_issues_remain(
+    client, postgres, meal, vat_state, mixed
+):
+    _, _, _, item = meal
+
+    def change(raw):
+        raw["resultState"] = "needsInformation"
+        raw["commonFields"]["vatAmount"]["state"] = vat_state
+        raw["issues"] = [{"field": "vatAmount", "reason": "ambiguousEvidence", "evidenceRefs": []}]
+        if mixed:
+            raw["issues"].append(
+                {"field": "originalAmount", "reason": "conflictingEvidence", "evidenceRefs": []}
+            )
+
+    fx = SpyFx()
+    assert run(postgres, PayloadExtractor(change, {"transactionCurrency": "EUR"}), fx=fx)
+    current = client.get(f"/api/expenses/{item['id']}").json()
+    assert current["facts"]["vatAmount"] is None
+    assert current["suggestion"]["diagnostics"]["optionalVat"] == "blank_nonblocking"
+    assert current["state"] == ("needs_information" if mixed else "review")
+    assert len(fx.calls) == (0 if mixed else 1)
+    assert all(issue["field"] != "vatAmount" for issue in current["issues"])
+    assert len(current["suggestion"]["output"]["issues"]) == (2 if mixed else 1)
+
+
+def conflicting_pair(client, postgres, meal):
+    _, headers, _, first = meal
+    assert run(postgres)
+    report, _ = report_and_headers(client)
+    document = upload(
+        client, report, headers, content=image_bytes("JPEG"), mime="image/jpeg", name="second.jpg"
+    ).json()["documents"][0]["id"]
+    assert run_once(postgres[1])
+    second = client.post(
+        f"/api/reports/{report}/expenses", headers=headers, json={"documentId": document}
+    ).json()["expense"]
+    assert run(postgres, FakeExtractor({"originalAmount": "20"}))
+    return headers, first, second
+
+
+@pytest.mark.parametrize(
+    "field,value", [("receiptDate", "2026-10-02"), ("mealType", "lunch"), ("category", "air")]
+)
+def test_corrected_slot_restores_peer_without_model_or_fx_calls(
+    client, postgres, meal, field, value
+):
+    headers, first, second = conflicting_pair(client, postgres, meal)
+    fx = SpyFx()
+    edit = client.patch(
+        f"/api/expenses/{first['id']}",
+        headers=headers,
+        json={"version": 1, "facts": {field: value}, "confirmed": True},
+    )
+    assert edit.status_code == 200
+    peer = client.get(f"/api/expenses/{second['id']}").json()
+    assert peer["state"] == "review" and peer["calculation"]["claimGbp"] == "20.00"
+    assert run(postgres, fx=fx)
+    assert fx.calls == []
+    with postgres[1].connect() as db:
+        assert db.scalar(select(ModelBudget.calls).where(ModelBudget.key == "global")) == 2
+
+
+def test_exclusion_restore_recomputes_two_report_conflicts_and_preserves_confirmation(
+    client, postgres, meal
+):
+    headers, first, second = conflicting_pair(client, postgres, meal)
+    response = client.patch(
+        f"/api/expenses/{first['id']}", headers=headers, json={"version": 1, "excluded": True}
+    )
+    assert response.status_code == 200
+    peer = client.get(f"/api/expenses/{second['id']}").json()
+    assert peer["state"] == "review" and peer["calculation"]["claimGbp"] == "20.00"
+    restored = client.patch(
+        f"/api/expenses/{first['id']}", headers=headers, json={"version": 2, "excluded": False}
+    )
+    assert restored.status_code == 200
+    assert client.get(f"/api/expenses/{second['id']}").json()["state"] == "conflict"
+    assert run(postgres)
+    assert client.get(f"/api/expenses/{first['id']}").json()["state"] == "conflict"
+
+
+@pytest.mark.parametrize("invalid", ["single", "air", "excluded", "unreadable"])
+def test_choose_rejects_ineligible_direct_calls_without_peer_writes(
+    client, postgres, meal, invalid
+):
+    if invalid == "single":
+        _, headers, _, first = meal
+        assert run(postgres)
+        peer = None
+    else:
+        headers, first, second = conflicting_pair(client, postgres, meal)
+        if invalid == "air":
+            assert (
+                client.patch(
+                    f"/api/expenses/{first['id']}",
+                    headers=headers,
+                    json={"version": 1, "facts": {"category": "air"}, "confirmed": True},
+                ).status_code
+                == 200
+            )
+            assert run(postgres)
+        elif invalid == "excluded":
+            assert (
+                client.patch(
+                    f"/api/expenses/{first['id']}",
+                    headers=headers,
+                    json={"version": 1, "excluded": True},
+                ).status_code
+                == 200
+            )
+        else:
+            with postgres[1].begin() as db:
+                db.execute(
+                    Expense.__table__.update()
+                    .where(Expense.id == first["id"])
+                    .values(provenance={"receiptEligibility": {"eligible": False}})
+                )
+        peer = client.get(f"/api/expenses/{second['id']}").json()
+    current = client.get(f"/api/expenses/{first['id']}").json()
+    with postgres[1].connect() as db:
+        count = db.scalar(select(func.count()).select_from(ExpenseJob))
+    response = client.post(
+        f"/api/expenses/{first['id']}/choose", headers=headers, json={"version": current["version"]}
+    )
+    assert response.status_code == 409
+    if peer:
+        assert client.get(f"/api/expenses/{second['id']}").json() == peer
+    with postgres[1].connect() as db:
+        assert db.scalar(select(func.count()).select_from(ExpenseJob)) == count
+
+
+def test_arithmetic_reuse_has_active_revision_and_immutable_source_result(client, postgres, meal):
+    from unloop.models import ExpenseCalculation, ExpenseRevision
+
+    _, headers, _, item = meal
+    assert run(postgres)
+    before = client.get(f"/api/expenses/{item['id']}").json()
+    after = client.patch(
+        f"/api/expenses/{item['id']}",
+        headers=headers,
+        json={"version": 1, "facts": {"merchant": "Human corrected"}, "confirmed": True},
+    ).json()
+    assert after["calculation"]["expenseRevisionId"] == after["revisionId"]
+    assert after["calculation"]["derivation"] == {
+        "kind": "reused_arithmetic",
+        "sourceRevisionId": before["revisionId"],
+    }
+    with postgres[1].connect() as db:
+        rows = db.execute(select(ExpenseCalculation.revision_id, ExpenseCalculation.result)).all()
+        assert len(rows) == 2
+        snapshot = db.scalar(
+            select(ExpenseRevision.snapshot).where(ExpenseRevision.id == after["revisionId"])
+        )
+        assert snapshot["calculation"] == after["calculation"]
+        assert (
+            next(row.result for row in rows if str(row.revision_id) == before["revisionId"])
+            == before["calculation"]
+        )
+
+
+def test_legacy_ineligible_suggestion_cannot_expose_saved_claim_before_recheck(
+    client, postgres, meal
+):
+    report, _, _, item = meal
+    assert run(postgres)
+    with postgres[1].begin() as db:
+        db.execute(Expense.__table__.update().where(Expense.id == item["id"]).values(provenance={}))
+        raw = db.scalar(select(ExtractionSuggestion.output))
+        raw = {
+            **raw,
+            "resultState": "needsInformation",
+            "documentFindings": [
+                {**raw["documentFindings"][0], "apparentRole": "supportingDocument"}
+            ],
+        }
+        db.execute(ExtractionSuggestion.__table__.update().values(output=raw))
+    current = client.get(f"/api/expenses/{item['id']}").json()
+    assert current["state"] == "needs_information" and current["calculation"] is None
+    assert current["question"]["field"] == "receipt"
+    assert client.get(f"/api/reports/{report}/expenses").json()["preparedClaimGbp"] == "0.00"

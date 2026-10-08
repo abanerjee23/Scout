@@ -11,7 +11,15 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from unloop.contracts import ExtractionResult, validate_context
-from unloop.expenses import FIELDS, REQUIRED, check_facts
+from unloop.expenses import (
+    FIELDS,
+    REQUIRED,
+    check_facts,
+    meal_slot,
+    receipt_decision,
+    receipt_eligible,
+    refresh_conflicts,
+)
 from unloop.extraction import MODEL, PROMPT_VERSION, ExtractionFailure, observe
 from unloop.fx import FxPending, saved, validate_observation
 from unloop.meal_policy import CAPS, CLAUSES
@@ -234,6 +242,7 @@ def finish_expense(
                 job.state, item.state = "failed", "failed"
             job.failure_code = item.failure_code = failure
         else:
+            previous_slot = meal_slot(item)
             if output is not None:
                 db.add(
                     ExtractionSuggestion(
@@ -244,12 +253,34 @@ def finish_expense(
                         created_at=now,
                     )
                 )
+                item.provenance = {
+                    **item.provenance,
+                    "receiptEligibility": receipt_decision(output.model_dump()),
+                }
                 item.issues = [
                     issue.model_dump()
                     for issue in output.issues
-                    if issue.field not in item.locks
-                    or issue.reason in {"multipleReceipts", "unreadable"}
+                    if issue.field != "vatAmount"
+                    and (
+                        issue.field not in item.locks
+                        or issue.reason in {"multipleReceipts", "unreadable"}
+                        or issue.field in {"receipt", "documents"}
+                    )
                 ]
+                if not item.provenance["receiptEligibility"]["eligible"] and not any(
+                    issue["field"] in {"receipt", "documents"} for issue in item.issues
+                ):
+                    item.issues = [
+                        *item.issues,
+                        {
+                            "field": "receipt",
+                            "reason": "unreadable"
+                            if not output.documentFindings[0].readable
+                            or output.resultState == "couldNotRead"
+                            else "ambiguousEvidence",
+                            "evidenceRefs": [],
+                        },
+                    ]
                 item.facts = {**facts, **{key: item.facts.get(key) for key in item.locks}}
                 provenance = {
                     key: {
@@ -277,7 +308,8 @@ def finish_expense(
             elif item.facts.get("category") not in {None, "meals"}:
                 item.state, item.calculation = "unsupported", None
             elif (
-                item.issues
+                not receipt_eligible(db, item)
+                or item.issues
                 or any(not item.facts.get(key) for key in REQUIRED)
                 or (item.locks and not item.confirmed)
             ):
@@ -323,32 +355,7 @@ def finish_expense(
                         )
                         .on_conflict_do_nothing()
                     )
-            # Owner lock serializes conflict detection with edits/selection and other job writes.
-            if (
-                item.state != "excluded"
-                and item.facts.get("category") == "meals"
-                and item.facts.get("mealType")
-                and item.facts.get("receiptDate")
-            ):
-                others = db.scalars(
-                    select(Expense).where(
-                        Expense.session_id == item.session_id,
-                        Expense.id != item.id,
-                        Expense.state != "excluded",
-                    )
-                ).all()
-                conflicts = [
-                    other
-                    for other in others
-                    if other.facts.get("category") == "meals"
-                    and all(
-                        other.facts.get(key) == item.facts[key]
-                        for key in ["receiptDate", "mealType"]
-                    )
-                ]
-                if conflicts:
-                    for conflict in [item, *conflicts]:
-                        conflict.state, conflict.calculation = "conflict", None
+            refresh_conflicts(db, owner.id, [previous_slot, meal_slot(item)])
             job.state, job.failure_code = "complete", None
         job.lease_token = job.lease_until = None
         return True
@@ -385,6 +392,7 @@ def run_expense_once(engine, settings, extractor, policy, fx):
                 else None,
             }
             facts, locks, confirmed = dict(item.facts), list(item.locks), item.confirmed
+            eligible, retained_issues = receipt_eligible(db, item), list(item.issues)
             bundle = [
                 {
                     "id": str(document.id),
@@ -401,16 +409,37 @@ def run_expense_once(engine, settings, extractor, policy, fx):
                 output, candidate = validated_output(output, claim, document)
             except ValueError:
                 raise ExtractionFailure("invalid_output") from None
+            eligible = receipt_decision(output.model_dump())["eligible"]
+            retained_issues = [
+                issue.model_dump()
+                for issue in output.issues
+                if issue.field != "vatAmount"
+                and (
+                    issue.field not in locks
+                    or issue.reason in {"multipleReceipts", "unreadable"}
+                    or issue.field in {"receipt", "documents"}
+                )
+            ]
+            if output.commonFields.vatAmount.state != "supported" or any(
+                issue.field == "vatAmount" for issue in output.issues
+            ):
+                candidate["vatAmount"] = None
+                diagnostics = {**(diagnostics or {}), "optionalVat": "blank_nonblocking"}
             facts = {**candidate, **{key: facts.get(key) for key in locks}}
         check_facts(facts)
         # Revalidate before a new FX provider read, not only before persistence.
         with Session(engine) as db:
             authority(db, claim)
         calculation = None
-        if (not locks or confirmed) and (
-            output is None
-            or output.resultState in {"complete", "needsInformation"}
-            and not output.issues
+        if (
+            eligible
+            and not retained_issues
+            and (not locks or confirmed)
+            and (
+                output is None
+                or output.resultState in {"complete", "needsInformation"}
+                and not retained_issues
+            )
         ):
             try:
                 calculation = prepare_calculation(engine, facts, policy, fx)

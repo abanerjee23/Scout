@@ -45,3 +45,73 @@ for (const mobile of [false, true]) test(`explicit fake A1/FX: actual PostgreSQL
   await expect(expenses).toHaveCount(0);
   expect((await context.request.get('http://127.0.0.1:5174' + original)).status()).toBe(403);
 });
+
+async function newReport(page: import('@playwright/test').Page) {
+  await page.getByLabel('Describe your report').fill('London 1–4 October 2026 for a client workshop');
+  await page.getByRole('button', { name: 'Propose report', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirm and create report' }).click();
+  await expect(page.getByRole('region', { name: 'Workspace evidence' })).toBeVisible();
+  return new URL(page.url()).searchParams.get('report')!;
+}
+async function addReceipt(page: import('@playwright/test').Page, name: string, mimeType: string, buffer: Buffer) {
+  const evidence = page.getByRole('region', { name: 'Workspace evidence' });
+  await evidence.getByLabel('Workspace files').setInputFiles({ name, mimeType, buffer });
+  await evidence.getByRole('button', { name: 'Upload evidence' }).click();
+  await expect(evidence.getByText('Validated · retained', { exact: true })).toBeVisible({ timeout: 30000 });
+  const expenses = page.getByRole('region', { name: 'Expense workspace' });
+  await expenses.getByLabel('Selected receipt', { exact: true }).selectOption({ label: name });
+  await expenses.getByRole('button', { name: 'Prepare selected receipt' }).click();
+  return expenses;
+}
+
+test('real PostgreSQL cross-report original reuse retains notice and opens owning expense', async ({ page, context }) => {
+  await page.goto('http://127.0.0.1:5174');
+  const first = await newReport(page);
+  let expenses = await addReceipt(page, 'synthetic.png', 'image/png', png);
+  await expect(expenses.locator('#expense-mealType')).toBeVisible();
+  await expenses.locator('#expense-mealType').selectOption('dinner');
+  await expenses.locator('#expense-confirm-facts').check();
+  await expenses.getByRole('button', { name: 'Save corrections' }).click();
+  await expect(expenses.getByText('£62.00', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'New report', exact: true }).click();
+  const second = await newReport(page);
+  expect(second).not.toBe(first);
+  expenses = await addReceipt(page, 'synthetic.png', 'image/png', png);
+  await expect(expenses.getByText('No second expense or claim was created.', { exact: false })).toBeVisible();
+  await expect(expenses.getByText('No expenses yet.', { exact: false })).toBeVisible();
+  const link = expenses.getByRole('link', { name: 'Open existing expense', exact: true });
+  await expect(link).toBeVisible();
+  const owning = await (await context.request.get(`http://127.0.0.1:5174/api/reports/${first}/expenses`)).json();
+  const empty = await (await context.request.get(`http://127.0.0.1:5174/api/reports/${second}/expenses`)).json();
+  expect(owning.expenses).toHaveLength(1); expect(empty.expenses).toHaveLength(0);
+  await link.click();
+  await expect(page).toHaveURL(new RegExp(`report=${first}&expense=${owning.expenses[0].id}`));
+  await expect(expenses.locator('#expense-mealType')).toHaveValue('dinner');
+  await expect(expenses.getByRole('img', { name: 'Selected original receipt' })).toBeVisible();
+  expect(await (await context.request.get('http://127.0.0.1:5174' + owning.expenses[0].originalUrl)).body()).toEqual(png);
+});
+
+function syntheticPdf() {
+  const stream = 'BT /F1 12 Tf 20 70 Td (SYNTHETIC DINNER RECEIPT) Tj ET';
+  const objects = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 100] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'];
+  let body = '%PDF-1.7\n'; const offsets = [0];
+  objects.forEach((object, index) => { offsets.push(Buffer.byteLength(body)); body += `${index + 1} 0 obj\n${object}\nendobj\n`; });
+  const xref = Buffer.byteLength(body); body += `xref\n0 6\n0000000000 65535 f \n${offsets.slice(1).map(offset => `${String(offset).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(body);
+}
+
+test('real API/PG PDF context offers explicit readable fallback and byte-exact original download', async ({ page }) => {
+  const { readFile } = await import('node:fs/promises');
+  await page.goto('http://127.0.0.1:5174'); await newReport(page);
+  const pdf = syntheticPdf(); const expenses = await addReceipt(page, 'synthetic.pdf', 'application/pdf', pdf);
+  await expect(expenses.locator('#expense-mealType')).toBeVisible();
+  await expect(expenses.getByText('Inline PDF viewing is unavailable here', { exact: false })).toBeVisible();
+  await expect(expenses.locator('iframe')).toHaveCount(0);
+  const downloadReady = page.waitForEvent('download');
+  await expenses.getByRole('link', { name: 'Download original receipt' }).click();
+  const download = await downloadReady; const file = await download.path();
+  expect(file).not.toBeNull(); expect(await readFile(file!)).toEqual(pdf);
+  await expect(expenses.locator('#expense-originalAmount')).toHaveValue('62.00'); // explicit fake A1, not PDF extraction proof
+});
