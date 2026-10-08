@@ -1251,3 +1251,85 @@ def test_legacy_ineligible_suggestion_cannot_expose_saved_claim_before_recheck(
     assert current["state"] == "needs_information" and current["calculation"] is None
     assert current["question"]["field"] == "receipt"
     assert client.get(f"/api/reports/{report}/expenses").json()["preparedClaimGbp"] == "0.00"
+
+
+def test_readable_unsupported_category_can_be_corrected_without_receipt_self_declaration(
+    client, postgres, meal
+):
+    _, headers, _, item = meal
+
+    def change(raw):
+        raw["classification"]["value"] = "air"
+        raw["categoryFields"] = None
+        raw["resultState"] = "unsupported"
+        raw["issues"] = [
+            {"field": "classification", "reason": "unsupportedCategory", "evidenceRefs": []}
+        ]
+
+    assert run(postgres, PayloadExtractor(change))
+    current = client.get(f"/api/expenses/{item['id']}").json()
+    assert current["state"] == "unsupported"
+    assert current["provenance"]["receiptEligibility"]["eligible"] is True
+    edited = client.patch(
+        f"/api/expenses/{item['id']}",
+        headers=headers,
+        json={
+            "version": current["version"],
+            "facts": {"category": "meals", "mealType": "dinner"},
+            "confirmed": True,
+        },
+    )
+    assert edited.status_code == 200
+    assert run(postgres)
+    current = client.get(f"/api/expenses/{item['id']}").json()
+    assert current["state"] == "review"
+    assert current["calculation"]["claimGbp"] == "50.00"
+
+
+def test_legacy_optional_vat_issue_clears_on_calculation_recheck(client, postgres, meal):
+    _, headers, _, item = meal
+    assert run(postgres)
+    from sqlalchemy.orm import Session
+
+    with Session(postgres[1]) as db, db.begin():
+        row = db.get(Expense, item["id"])
+        row.issues = [{"field": "vatAmount", "reason": "ambiguousEvidence", "evidenceRefs": []}]
+        row.facts = {**row.facts, "vatAmount": "1.20"}
+        row.state = "needs_information"
+        row.calculation = None
+    assert (
+        client.post(
+            f"/api/expenses/{item['id']}/recheck", headers=headers, json={"version": 1}
+        ).status_code
+        == 200
+    )
+    assert run(postgres)
+    current = client.get(f"/api/expenses/{item['id']}").json()
+    assert current["state"] == "review"
+    assert current["facts"]["vatAmount"] is None
+    assert current["issues"] == []
+
+
+def test_human_confirmed_exclusion_restore_preserves_locked_facts(client, postgres, meal):
+    _, headers, _, item = meal
+    assert run(postgres)
+    saved = client.patch(
+        f"/api/expenses/{item['id']}",
+        headers=headers,
+        json={"version": 1, "facts": {"merchant": "Reviewed Kitchen"}, "confirmed": True},
+    ).json()
+    assert saved["confirmed"] is True
+    excluded = client.patch(
+        f"/api/expenses/{item['id']}",
+        headers=headers,
+        json={"version": saved["version"], "excluded": True},
+    ).json()
+    restored = client.patch(
+        f"/api/expenses/{item['id']}",
+        headers=headers,
+        json={"version": excluded["version"], "excluded": False},
+    ).json()
+    assert restored["confirmed"] is True
+    assert restored["facts"]["merchant"] == "Reviewed Kitchen"
+    assert run(postgres)
+    assert client.get(f"/api/expenses/{item['id']}").json()["state"] == "review"

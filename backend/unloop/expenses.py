@@ -119,7 +119,7 @@ def receipt_decision(output):
         len(findings) == 1
         and findings[0].get("readable") is True
         and findings[0].get("apparentRole") == "receipt"
-        and output.get("resultState") in {"complete", "needsInformation"}
+        and output.get("resultState") in {"complete", "needsInformation", "unsupported"}
         and not any(
             issue.get("reason") in {"multipleReceipts", "unreadable"}
             or issue.get("field") in {"receipt", "documents"}
@@ -444,7 +444,10 @@ def edit_expense(id: UUID, body: ExpenseCommand, db: Db, owner: MutationOwner):
             for issue in item.issues
             if issue["reason"] in {"multipleReceipts", "unreadable"}
             or issue["field"] in {"receipt", "documents"}
-            or issue["field"] not in body.facts
+            or (
+                issue["field"] not in body.facts
+                and not (issue["field"] == "classification" and "category" in body.facts)
+            )
         ]
     if changed & FINANCIAL or body.excluded or not confirmed:
         item.calculation = None

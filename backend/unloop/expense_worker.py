@@ -243,6 +243,9 @@ def finish_expense(
             job.failure_code = item.failure_code = failure
         else:
             previous_slot = meal_slot(item)
+            if output is None and any(issue["field"] == "vatAmount" for issue in item.issues):
+                item.issues = [issue for issue in item.issues if issue["field"] != "vatAmount"]
+                item.facts = facts
             if output is not None:
                 db.add(
                     ExtractionSuggestion(
@@ -302,7 +305,11 @@ def finish_expense(
                 item.provenance = {**item.provenance, **provenance}
             item.failure_code = None
             item.calculation = calculation
-            if output and output.resultState in {"unsupported", "couldNotRead"}:
+            if output and (
+                output.resultState == "couldNotRead"
+                or output.resultState == "unsupported"
+                and not ("category" in item.locks and item.confirmed)
+            ):
                 item.state = "unsupported" if output.resultState == "unsupported" else "unreadable"
                 item.calculation = None
             elif item.facts.get("category") not in {None, "meals"}:
@@ -392,7 +399,10 @@ def run_expense_once(engine, settings, extractor, policy, fx):
                 else None,
             }
             facts, locks, confirmed = dict(item.facts), list(item.locks), item.confirmed
-            eligible, retained_issues = receipt_eligible(db, item), list(item.issues)
+            eligible = receipt_eligible(db, item)
+            retained_issues = [issue for issue in item.issues if issue["field"] != "vatAmount"]
+            if len(retained_issues) != len(item.issues) and "vatAmount" not in locks:
+                facts["vatAmount"] = None
             bundle = [
                 {
                     "id": str(document.id),

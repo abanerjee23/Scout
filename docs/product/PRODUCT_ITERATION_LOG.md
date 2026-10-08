@@ -307,3 +307,21 @@ Follow-up complete mandatory PostgreSQL suite: **240 passed, zero skips**, one e
 **Change and acceptance:** Abhinav authorized immediate local handoff. The final Cloud Phase 2 fixes were preserved in a checksum-verified snapshot and aligned onto published Phase 1C on `codex/local-phase-2`. Cloud implementation stopped and its follow-up is paused. Existing configuration/data were backed up; native macOS receipt parsing was repaired while preserving Linux memory enforcement. Acceptance required real PostgreSQL persistence/worker/browser checks, runnable local services and preserved source/configuration.
 
 **Evidence and next step:** 316 backend tests passed with zero skips; 14 Chromium tests passed with two workers after a disclosed four-worker run failed five loading/readiness checks. Ruff/build/migration alignment/fixture integrity/worker/release-gate checks passed. No paid model call, policy activation, remote database migration or deployment. Continue final Phase 2 review locally, keeping unresolved code-review and live/product gates visible. [Local workflow](LOCAL_DEVELOPMENT.md), [migration evidence](../validation/PHASE_2_LOCAL_HANDOFF.md).
+
+### Local Phase 2 correction review — 8 October 2026
+
+**Hypothesis:** document eligibility and category classification must remain separate, and optional VAT uncertainty must never survive as a blocking legacy issue.
+
+**Change:** readable final receipts with unsupported categories can be explicitly corrected without self-declaring document eligibility; legacy VAT-only issues clear during calculation recheck; exclusion/restore preserves previously confirmed human facts. Unsupported model results still pause until a confirmed category correction.
+
+**Evidence:** targeted Meal run found one unsupported-state regression (76 passed, one failed); repaired the condition and reran all six affected regressions, all passed. Existing full local migration baseline remains 316 backend/14 browser tests; these new checks are deterministic, not model-quality evidence.
+
+**Decision:** retain fixes and continue category coverage locally. Real provider, approved policy activation and hosted acceptance remain separate gates.
+
+### ITER-010 — Category coverage and evidence-backed assessment
+
+**Date / phase:** 8 October 2026 / Phase 3
+
+**Hypothesis:** extending the revisioned workspace to Air and Ground Transport with explicit required fields, supporting-document references and code-owned checks will enable mixed reports without weakening evidence or financial authority.
+
+**Acceptance before implementation:** preserve v0.1 Meal fixtures; schema v0.2 covers category-specific fields and exact authorized document references; category changes deactivate old fields; Air cabin derives from evidence and server grade only; unknown cabin, missing grade, missing rules and noncompliance remain explicit pauses; Ground Transport assessment stays inactive pending owner rules; approved source/version/checklist appears beside results. Financial calculations remain Decimal, human locks survive reruns and no model can waive restrictions. Real provider gates remain unmeasured until private access and spending approval.
