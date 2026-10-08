@@ -44,13 +44,18 @@ export async function api<T>(path: string, options: { method?: string; body?: un
 }
 
 let bootstrap: Promise<DemoSession> | null = null;
+const SESSION_STARTED = 'unloop-demo-started';
+export function rememberSession() { window.sessionStorage.setItem(SESSION_STARTED, 'true'); }
 export function loadSession(): Promise<DemoSession> {
   // React StrictMode can mount twice; share bootstrap to avoid orphan demo sessions.
   if (!bootstrap) bootstrap = api<DemoSession>('/session').catch(error => {
-    if (error instanceof ApiError && error.code === 'session_required')
+    if (error instanceof ApiError && error.code === 'session_required') {
+      if (window.sessionStorage.getItem(SESSION_STARTED) === 'true')
+        throw new ApiError(401, 'session_expired', 'Your demo session ended. Start a new one explicitly.');
       return api<DemoSession>('/session', { method: 'POST', body: {} });
+    }
     throw error;
-  }).finally(() => { bootstrap = null; });
+  }).then(value => { rememberSession(); return value; }).finally(() => { bootstrap = null; });
   return bootstrap;
 }
 

@@ -96,3 +96,17 @@ test('stale employee UI cannot create a report after the server switches to mana
   await expect(page.getByRole('form', { name: 'Review report header' })).toHaveCount(0);
   expect((await (await context.request.get('/api/reports')).json()).reports).toEqual([]);
 });
+
+test('lost session cookie after prior use never silently creates a replacement session', async ({ page, context }) => {
+  await page.goto('/'); await propose(page);
+  await page.getByRole('button', { name: 'Confirm and create report' }).click();
+  await expect(page.getByRole('region', { name: 'Selected report' }).getByRole('heading', { name: 'London expense report' })).toBeVisible();
+  await context.clearCookies();
+  let starts = 0; page.on('request', request => { if (request.url().endsWith('/api/session') && request.method() === 'POST') starts += 1; });
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Start a new demo session' })).toBeVisible();
+  expect(starts).toBe(0);
+  await page.getByRole('button', { name: 'Start new demo session' }).click();
+  await expect(page.getByRole('button', { name: 'Employee', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  expect(starts).toBe(1);
+});

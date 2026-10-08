@@ -22,6 +22,7 @@ from unloop.gmail import cleanup_expired, run_scan_once
 from unloop.gmail_provider import GmailSettings, GoogleAdapter
 from unloop.meal_policy import MealPolicy
 from unloop.models import DemoSession, Document, DocumentBytes, EvidenceJob, GmailScan
+from unloop.policy_questions import run_question_once
 
 LEASE_SECONDS = 30
 MAX_ATTEMPTS = 3
@@ -144,7 +145,9 @@ def main():
         help="Read bounded queue counts; not proof a worker is running",
     )
     parser.add_argument("--once", action="store_true", help="Process at most one due job")
-    parser.add_argument("--queue", choices=["all", "evidence", "expenses", "gmail"], default="all")
+    parser.add_argument(
+        "--queue", choices=["all", "evidence", "expenses", "gmail", "policy"], default="all"
+    )
     args = parser.parse_args()
     if args.check:
         print(
@@ -179,6 +182,11 @@ def main():
             if args.queue in {"all", "expenses"}
             else False
         )
+        policy_work = (
+            run_question_once(engine, a1_settings)
+            if args.queue in {"all", "policy"} and os.environ.get("POLICY_QA_ENABLED") == "true"
+            else False
+        )
         evidence_work = run_once(engine) if args.queue in {"all", "evidence"} else False
         scan_work = False
         if args.queue == "all" and gmail_settings:
@@ -209,7 +217,7 @@ def main():
                         stderr=subprocess.DEVNULL,
                     )
                     scan_work = True
-        return expense_work or evidence_work or scan_work
+        return expense_work or evidence_work or scan_work or policy_work
 
     try:
         if args.diagnostics:

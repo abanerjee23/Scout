@@ -11,6 +11,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     LargeBinary,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -472,4 +473,72 @@ class ExpenseCalculation(Base):
         ForeignKey("expense_revisions.id", ondelete="CASCADE")
     )
     result: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class PolicyChunk(Base):
+    __tablename__ = "policy_chunks"
+    __table_args__ = (
+        UniqueConstraint("policy_version", "config_id", "clause_id", name="policy_chunk_once"),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    policy_version: Mapped[str] = mapped_column(ForeignKey("meal_policy_versions.id"))
+    config_id: Mapped[str] = mapped_column(String(100))
+    clause_id: Mapped[str] = mapped_column(String(32))
+    source_hash: Mapped[str] = mapped_column(String(64))
+    text_hash: Mapped[str] = mapped_column(String(64))
+    # Portable storage, evaluated by pgvector's exact cosine operator at retrieval.
+    # Avoid migration-time changes to shared provider extensions or legacy public tables.
+    embedding: Mapped[str] = mapped_column(Text)
+
+
+class PolicyQuestion(Base):
+    __tablename__ = "policy_questions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["session_id", "report_id"],
+            ["reports.session_id", "reports.id"],
+            ondelete="CASCADE",
+            name="policy_question_report_owner",
+        ),
+        ForeignKeyConstraint(
+            ["session_id", "expense_id"],
+            ["expenses.session_id", "expenses.id"],
+            ondelete="CASCADE",
+            name="policy_question_expense_owner",
+        ),
+        ForeignKeyConstraint(
+            ["expense_id", "expense_revision_id"],
+            ["expense_revisions.expense_id", "expense_revisions.id"],
+            ondelete="CASCADE",
+            name="policy_question_revision",
+        ),
+        CheckConstraint("attempts BETWEEN 0 AND 3", name="policy_question_attempts"),
+        CheckConstraint(
+            "(state = 'processing' AND lease_token IS NOT NULL AND lease_until IS NOT NULL) "
+            "OR (state != 'processing' AND lease_token IS NULL AND lease_until IS NULL)",
+            name="policy_question_lease",
+        ),
+        UniqueConstraint("session_id", "request_id", name="policy_question_request_once"),
+        CheckConstraint(
+            "state IN ('queued','processing','complete','failed','stale')",
+            name="policy_question_state",
+        ),
+        CheckConstraint("mode IN ('rag','fullContext')", name="policy_question_mode"),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID]
+    report_id: Mapped[UUID]
+    expense_id: Mapped[UUID | None] = mapped_column(ForeignKey("expenses.id", ondelete="CASCADE"))
+    expense_revision_id: Mapped[UUID | None]
+    request_id: Mapped[UUID]
+    question: Mapped[str] = mapped_column(String(800))
+    policy_version: Mapped[str] = mapped_column(ForeignKey("meal_policy_versions.id"))
+    state: Mapped[str] = mapped_column(String(16), default="queued")
+    mode: Mapped[str] = mapped_column(String(16), default="rag")
+    attempts: Mapped[int] = mapped_column(default=0)
+    lease_token: Mapped[UUID | None]
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    result: Mapped[dict | None] = mapped_column(JSON)
+    failure_code: Mapped[str | None] = mapped_column(String(40))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

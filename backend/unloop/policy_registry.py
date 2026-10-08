@@ -97,3 +97,28 @@ def explain(calculation, category):
 @router.get("/policy")
 def read_policy(request: Request, _owner: Owner):
     return registry(request.app.state.meal_policy)
+
+
+def store_policy(db, policy):
+    from datetime import UTC, datetime
+
+    from sqlalchemy.dialects.postgresql import insert
+
+    from unloop.models import MealPolicyVersion
+
+    source = registry(policy)
+    db.execute(
+        insert(MealPolicyVersion)
+        .values(
+            id=policy.version,
+            effective_date=policy.effective_date,
+            rounding=policy.rounding,
+            facts={"source": source},
+            created_at=datetime.now(UTC),
+        )
+        .on_conflict_do_nothing()
+    )
+    saved = db.get(MealPolicyVersion, policy.version)
+    if saved.facts.get("source", {}).get("sourceHash") != source["sourceHash"]:
+        raise ValueError("An existing policy version cannot be replaced by amended sources")
+    return saved.facts["source"]

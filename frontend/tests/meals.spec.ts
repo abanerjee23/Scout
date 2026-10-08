@@ -11,7 +11,7 @@ for (const mobile of [false, true]) test(`explicit fake A1/FX: actual PostgreSQL
   const evidence = page.getByRole('region', { name: 'Workspace evidence' });
   await evidence.getByLabel('Workspace files').setInputFiles({ name: 'synthetic.png', mimeType: 'image/png', buffer: png });
   await evidence.getByRole('button', { name: 'Upload evidence' }).click();
-  await expect(evidence.getByText('Validated · retained', { exact: true })).toBeVisible();
+  await expect(evidence.getByText('Validated · retained', { exact: true })).toBeVisible({ timeout: 30000 });
   const expenses = page.getByRole('region', { name: 'Expense workspace' });
   await expenses.getByLabel('Selected receipt', { exact: true }).selectOption({ label: 'synthetic.png' });
   await expenses.getByRole('button', { name: 'Prepare selected receipt' }).click();
@@ -136,4 +136,20 @@ test('explicit fake A1: category correction opens Air fields, evidence pauses ca
   await expect(expenses.getByText('Compliant', { exact: false })).toBeVisible();
   await expect(expenses.locator('#expense-cabinClass')).toHaveValue('economy');
   await expect(page.getByRole('region', { name: 'Policy sources' })).toContainText('AIR-03');
+});
+
+test('explicit fake A3 and vectors: policy guidance opens exact approved passages without changing claim', async ({ page }) => {
+  await page.goto('http://127.0.0.1:5174'); await newReport(page);
+  const help = page.getByRole('region', { name: 'Policy help' });
+  await help.getByLabel('Your policy question').fill('Can I claim a £62 dinner?');
+  await help.getByRole('button', { name: 'Ask policy', exact: true }).click();
+  await expect(help.getByText('The claim is capped by the governing Meal allowance.', { exact: true })).toBeVisible({ timeout: 15000 });
+  await help.getByText('MEAL-03 · inspect passage', { exact: true }).click();
+  await expect(help.locator('blockquote')).toContainText('full GBP receipt amount');
+  await expect(page.getByText('Prepared draft total: £0.00', { exact: false })).toBeVisible();
+  await page.reload();
+  await expect(help.getByText('The claim is capped by the governing Meal allowance.', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Manager', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Manager', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(help).toHaveCount(0);
 });

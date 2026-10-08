@@ -22,7 +22,6 @@ from unloop.expenses import (
 )
 from unloop.extraction import MODEL, PROMPT_VERSION, ExtractionFailure, observe
 from unloop.fx import FxPending, saved, validate_observation
-from unloop.meal_policy import CAPS, CLAUSES
 from unloop.models import (
     DemoProfile,
     DemoSession,
@@ -33,10 +32,9 @@ from unloop.models import (
     ExpenseJob,
     ExtractionSuggestion,
     FxObservation,
-    MealPolicyVersion,
-    ModelBudget,
 )
-from unloop.policy_registry import registry
+from unloop.policy_registry import store_policy
+from unloop.provider_budget import reserve
 
 
 @dataclass(frozen=True)
@@ -131,23 +129,7 @@ def reserve_call(engine, claim, settings):
         job = db.get(ExpenseJob, claim.id)
         if job.lease_token != claim.token or job.lease_until <= datetime.now(UTC):
             raise ExtractionFailure("processing_failed")
-        amount = settings.reserve()
-        for key, ceiling in [
-            ("global", settings.max_calls),
-            (str(claim.session_id), settings.session_calls),
-        ]:
-            db.execute(
-                insert(ModelBudget)
-                .values(key=key, calls=0, reserved_usd="0")
-                .on_conflict_do_nothing()
-            )
-            budget = db.scalar(select(ModelBudget).where(ModelBudget.key == key).with_for_update())
-            if budget.calls >= ceiling or (
-                key == "global" and Decimal(budget.reserved_usd) + amount > settings.budget_usd
-            ):
-                raise ExtractionFailure("budget_exhausted")
-            budget.calls += 1
-            budget.reserved_usd = str(Decimal(budget.reserved_usd) + amount)
+        amount = reserve(db, settings, claim.session_id)
         job.call_count += 1
         job.reserved_usd = str(Decimal(job.reserved_usd or "0") + amount)
 
@@ -362,26 +344,7 @@ def finish_expense(
                     .values(revision_id=claim.revision_id, result=calculation, created_at=now)
                     .on_conflict_do_nothing()
                 )
-                db.execute(
-                    insert(MealPolicyVersion)
-                    .values(
-                        id=policy.version,
-                        effective_date=policy.effective_date,
-                        rounding=policy.rounding,
-                        facts={
-                            "caps": CAPS,
-                            "clauses": CLAUSES,
-                            "source": registry(policy),
-                            "cabinByGrade": {
-                                "ABC": "economy",
-                                "DEF": "premiumEconomy",
-                                "G": "business",
-                            },
-                        },
-                        created_at=now,
-                    )
-                    .on_conflict_do_nothing()
-                )
+                store_policy(db, policy)
                 fx = calculation["fx"]
                 if fx["provider"] != "native":
                     db.execute(

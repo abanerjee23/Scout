@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ApiError, api, loadSession, type DemoSession, type Persona, type Report } from './api';
+import { ApiError, api, loadSession, rememberSession, type DemoSession, type Persona, type Report } from './api';
 import AstraIntake from './components/AstraIntake';
 import ReportList from './components/ReportList';
 import ReportWorkspace from './components/ReportWorkspace';
@@ -43,7 +43,7 @@ function Workspace() {
 
   async function restart() {
     setLoading(true); setError('');
-    try { setSession(await api<DemoSession>('/session', { method: 'POST', body: {} })); setExpired(false); }
+    try { setSession(await api<DemoSession>('/session', { method: 'POST', body: {} })); rememberSession(); setExpired(false); }
     catch (problem) { failure(problem); } finally { setLoading(false); }
   }
 

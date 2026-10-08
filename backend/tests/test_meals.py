@@ -109,7 +109,7 @@ class FakeExtractor:
 @pytest.fixture
 def meal(client, postgres):
     with postgres[1].begin() as db:
-        db.execute(text("TRUNCATE model_budgets, fx_observations, meal_policy_versions"))
+        db.execute(text("TRUNCATE model_budgets, fx_observations, meal_policy_versions CASCADE"))
     report, headers = report_and_headers(client)
     document = upload(client, report, headers).json()["documents"][0]["id"]
     assert run_once(postgres[1])
@@ -843,8 +843,7 @@ def test_migration_populated_upgrade_downgrade_reupgrade_and_immutable_policy(po
             command.upgrade(config, "head")
             command.check(config)
             assert (
-                db.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0006_phase3_categories"
+                db.scalar(text("SELECT version_num FROM alembic_version")) == "0007_phase4_policy"
             )
             db.execute(
                 text(

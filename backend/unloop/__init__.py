@@ -1,5 +1,6 @@
 """FastAPI factory; no provider integration or automatic schema creation."""
 
+import asyncio
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -21,6 +22,7 @@ from unloop.extraction import A1Settings
 from unloop.gmail import router as gmail_router
 from unloop.gmail_provider import GmailFailure, GmailSettings, GoogleAdapter
 from unloop.meal_policy import MealPolicy
+from unloop.policy_questions import router as policy_question_router
 from unloop.policy_registry import router as policy_router
 
 
@@ -44,6 +46,7 @@ def create_app(test_config: dict | None = None) -> FastAPI:
     app.state.settings, app.state.engine = settings, engine
     values = {**os.environ, **(test_config or {})}
     app.state.a1_settings = A1Settings.load(values)
+    app.state.policy_qa_enabled = values.get("POLICY_QA_ENABLED") == "true"
     app.state.meal_policy = MealPolicy.load(values)
     app.state.gmail_settings = GmailSettings.load(
         {**os.environ, **(test_config or {})}, settings.app_origin
@@ -109,6 +112,32 @@ def create_app(test_config: dict | None = None) -> FastAPI:
         )
 
     app.add_middleware(UploadBodyLimit, limit=lambda: MAX_REQUEST_BYTES)
+    # Sync SQL dependencies hold connections until their handler/commit completes.
+    # Bound admissions below the pool (5 + 10 overflow) and AnyIO's thread budget.
+    # Otherwise waiting dependencies can starve the handlers that release connections.
+    admissions = asyncio.Semaphore(8)
+
+    @app.middleware("http")
+    async def database_admission(request: Request, call_next):
+        if not request.url.path.startswith(("/api/", "/auth/")):
+            return await call_next(request)
+        try:
+            await asyncio.wait_for(admissions.acquire(), timeout=5)
+        except TimeoutError:
+            return JSONResponse(
+                {
+                    "error": {
+                        "code": "workspace_busy",
+                        "message": "The workspace is busy. Retry shortly; saved data is retained.",
+                    }
+                },
+                status_code=503,
+                headers={"Retry-After": "2", "Cache-Control": "no-store"},
+            )
+        try:
+            return await call_next(request)
+        finally:
+            admissions.release()
 
     @app.middleware("http")
     async def request_boundary(request: Request, call_next):
@@ -175,6 +204,7 @@ def create_app(test_config: dict | None = None) -> FastAPI:
     app.include_router(gmail_router)
     app.include_router(expense_router)
     app.include_router(policy_router)
+    app.include_router(policy_question_router)
     static = os.environ.get("UNLOOP_STATIC_DIR")
     if static:
         root = Path(static).resolve()

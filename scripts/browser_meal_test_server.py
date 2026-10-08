@@ -12,12 +12,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import uvicorn
 from postgres_test_support import isolated_database, isolated_schema
+from sqlalchemy import text
 from unloop import create_app
 from unloop.expense_worker import run_expense_once
+from unloop.policy_index import build_index
+from unloop.policy_questions import run_question_once
 from unloop.worker import run_once
 
 from backend.tests.test_categories import AIR, CategoryExtractor
 from backend.tests.test_meals import TEST_LIMITS, TEST_POLICY, FakeExtractor
+from backend.tests.test_policy_questions import FakeAnswerer, FakeEmbedder
 
 
 class SyntheticFx:
@@ -45,6 +49,14 @@ def main():
         )
         app.state.a1_settings = TEST_LIMITS
         app.state.meal_policy = TEST_POLICY
+        app.state.policy_qa_enabled = True
+        with engine.begin() as db:
+            db.execute(
+                text(
+                    f'CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA "{isolated_schema(engine)}"'
+                )
+            )
+        build_index(engine, TEST_POLICY, TEST_LIMITS, FakeEmbedder())
 
         class RoutedExtractor:
             def extract(self, context, documents):
@@ -67,6 +79,7 @@ def main():
                     TEST_POLICY,
                     SyntheticFx(),
                 )
+                run_question_once(engine, TEST_LIMITS, FakeAnswerer(), FakeEmbedder())
                 stop.wait(0.2)
 
         thread = Thread(target=worker, daemon=True)
