@@ -34,7 +34,7 @@ Handle denied consent, wrong demo account, revoked/expired access, empty results
 
 ## Disconnect and data lifecycle
 
-Disconnect removes encrypted connection credentials and stops access; support revocation with Google. Already imported receipt evidence is a separate retained app record, so explain its retention and offer deletion under the app's policy. Session expiry must clean up connection credentials and not leave an orphan reusable token. Managers inspect submitted evidence only, not the mailbox or tokens. Key rotation, token refresh/reconnect and deletion need tests before any real-data claim.
+Disconnect removes encrypted connection credentials and stops access, with a separate provider revocation outcome. The worker sweeps expired-session credentials. Deterministic PostgreSQL/provider tests cover refresh, key rotation, disconnect races and expiry cleanup; actual Google consent/revocation/refresh still require live proof. Managers inspect submitted evidence only, never the mailbox or tokens. Imported evidence remains retained after disconnect or session expiry. No user-facing evidence deletion or automated retention service is implemented; immutable submission/release history also prevents deleting associated review records. A supported retention/deletion policy and verified backup/restore remain necessary before real-data use.
 
 ## Future users connecting their own Gmail
 
