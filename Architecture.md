@@ -2,8 +2,8 @@
 
 **Prepare expenses. Understand policy. Resolve blockers.**
 
-Updated: 7 October 2026  
-Owner: Abhinav  
+Updated: 8 October 2026. Owner: Abhinav.
+
 Status: Local expense preparation, policy guidance, submission, partial approvals and approved-data API are implemented and tested. Reviewed synthetic policy is active locally; Arize AX integration is implemented. Actual model/Arize/Gmail/Railway quality and hosted acceptance remain pending. See [current ledger](docs/product/BUILD_STATUS.md).
 
 [Vision](Unloop_Vision.md) governs product behaviour; [build plan](BUILD_PLAN.md) governs sequencing. This revision replaces Supabase employee/manager login, manual-only intake and required employee-led post-submission splitting. Previous designs and rendered diagrams are in [archive](archive/README.md). The map below reflects current responsibilities, not completed integrations.
@@ -60,7 +60,7 @@ On 8 October 2026 Abhinav selected Arize AI for evaluations and observability, s
 
 ## 3. Demo ownership and authority
 
-On first use create a server-owned demo session with an opaque random identifier in an httpOnly cookie, expiry and predefined employee/manager identities. Use Secure cookies on Railway, appropriate SameSite policy and server-side checks against cross-site mutation. Exact session lifetime is an implementation setting to document before use.
+On first use create a server-owned demo session with an opaque random identifier in an httpOnly cookie, expiry and predefined employee/manager identities. Use Secure cookies on Railway, appropriate SameSite policy and server-side checks against cross-site mutation. The default lifetime is eight hours from creation without sliding renewal; configured values must be 60–86,400 seconds. Prior-use tabs require an explicit fresh session after cookie loss.
 
 The active persona is server-validated. The owner may toggle between both demo views; this is deliberate demonstration access, not separation between two independently authenticated humans. All documents, reports, conversations, jobs, inboxes and Gmail connections are session-scoped. Knowing an object ID cannot grant another session access. Switching personas must not create a new owner or connect the manager to employee Gmail tokens.
 
@@ -123,13 +123,13 @@ Required money distinctions: originalAmount/originalCurrency; fullGbpReceiptAmou
 
 Meal caps are £15/£25/£50, applied after full conversion. Listed tips/service charges stay within the cap. Meal uniqueness is keyed to the stable demo employee within its session, receipt date and meal type across drafts/submissions/approved history. Exclusion releases a slot; re-opening an approved report does not. Several smaller receipts cannot pool an allowance.
 
-Air grade maximums are enforced in code: A–C Economy, D–F Premium Economy, G Business. Cabin needs evidence; missing grade pauses, and manager approval cannot waive the rule. Ground Transport rules must be reviewed before use. Inactive category fields cannot influence checks or export.
+Air grade maximums are enforced in code: A–C Economy, D–F Premium Economy, G Business. Cabin needs evidence; missing grade pauses, and manager approval cannot waive the rule. Owner-reviewed Ground Transport rules are active locally: documented business journeys, no extra cap or mode preference, optional routes, listed tips/service included and separately identified penalties excluded. Inactive category fields cannot influence checks or export.
 
 FX uses saved acceptable observations, then Frankfurter with ECB explicitly selected, then the agreed Open Exchange Rates fallback. Validate actual provider dates against the receipt date. Derive fallback cross-rates from one same-date snapshot; never mix providers/dates or relabel earlier observations. Preserve fallback basis/reason. Exact-date weekends/holidays and unpublished same-day rates stay pending unless a new policy exception is explicitly agreed. Never replace today's/approved saved conversion on report read or primary recovery. Exact provider access, terms and interfaces are verified when adapters are implemented; archived provider alternatives are not integrations to build.
 
 ## 8. Policy retrieval and guidance
 
-Retain approved policy/FAQ snapshots with stable clause IDs, owner, source version/effective date, provenance, precedence and ingestion metadata. Initially activate one approved applicable policy version; the draft still needs an effective date and Ground Transport clauses. A newer draft cannot silently replace the policy tied to a saved assessment/release.
+Retain approved policy/FAQ snapshots with stable clause IDs, owner, source version/effective date, provenance, precedence and ingestion metadata. The local registry contains one approved applicable version, `synthetic-te-0.3:2026-10-01`, with 22 governing clauses, the reviewed Ground Transport rules and Decimal ROUND_HALF_UP per line. Receipts before that date remain unassessed; historical multi-version selection is future work. A newer draft cannot silently replace the policy tied to a saved assessment/release.
 
 pgvector is a rebuildable index in PostgreSQL. Pin embedding configuration with its source set; atomically activate aligned sources/index and filter ownership/version/applicability before passages reach A2/A3. Use exact clause/term lookup alongside similarity where useful. A2 receives a required-rule checklist/core policy text so top-k retrieval is not mistaken for exhaustive review.
 
@@ -145,7 +145,7 @@ For partial approval, validate selected submitted lines under a transaction and 
 
 A report with approved and unresolved lines is Partially approved. Nine approved lines in a ten-line report can progress while one remains held/returned. The tenth can later generate another explicit approved release after resolution/resubmission. Keep stable expense IDs; do not clone expenses or require an employee-created `-1` follow-up report for manager discretion. The earlier linked-split design is archived, not an active dependency.
 
-Manager approval binds to exactly the previewed submitted version and selected set. Revision checks prevent concurrent edits or stale selection from approving changed facts. Earlier releases never change. Only when every line has a terminal recorded outcome and no active question remains may the report complete; exact UI labels are finalized in Phase 5. Approved amount, pending amount and next action must be clear in both inboxes. Notifications are durable in-app events; no external push/email is claimed.
+Manager approval binds to exactly the previewed submitted version and selected set. Revision checks prevent concurrent edits or stale selection from approving changed facts. Earlier releases never change. Only when every line has a terminal recorded outcome and no active question remains may the report complete; the current UI distinguishes draft, submitted, partially approved and approved states. Approved amount, pending amount and next action must be clear in both inboxes. Notifications are durable in-app events; no external push/email is claimed.
 
 Optional Teams launch uses separately configured demo participants and A4's minimal, user-reviewed opening context. Never embed receipt contents or tokens in a link. The other session/persona's access is not transferred by an expense URL. Do not read private Teams chat or treat launching as proof of sending/resolution. An explicit recorded human outcome is required.
 
@@ -153,12 +153,12 @@ Optional Teams launch uses separately configured demo participants and A4's mini
 
 Use a durable PostgreSQL queue and worker, not request-local fire-and-forget calls. Claim due jobs in a short transaction with row locking/leases, commit before network work, cap attempts and retry only transient failures with backoff. Recover expired leases. No lock remains held while waiting for a provider or human.
 
-Execution is at least once. Idempotent writes and revision/source checks prevent repeated calls from duplicating output or overwriting newer human work. A crash may incur another model call/cost; do not claim exactly-once external execution. Set call deadlines, turn/tool limits, concurrency and per-report spend before paid experiments. One schema repair can fix format; it cannot pressure a model to invent missing facts.
+Execution is at least once. Idempotent writes and revision/source checks prevent repeated calls from duplicating output or overwriting newer human work. A crash may incur another model call/cost; do not claim exactly-once external execution. Set call deadlines, turn/tool limits, concurrency and per-report spend before paid experiments. The current A1 adapter makes one structured-output call without SDK retries or schema repair; malformed output is rejected. Transient worker retries consume new persistent reservations.
 
 | Failure | Recovery |
 |---|---|
 | Missing/unreadable/conflicting evidence | Keep draft/evidence; ask a precise question or clearer upload |
-| Invalid output or unknown reference | Reject, bounded repair if structural, then show processing failure |
+| Invalid output or unknown reference | Reject and show processing failure; do not retry malformed facts into apparent certainty |
 | Gmail denial/revocation/empty/partial scan | Explain outcome, retain visible imported evidence, reconnect/retry or upload |
 | Missing or wrong-date FX | Conversion pending, preserve original amount and retry under policy |
 | Missing policy coverage | Explain limitation; do not fabricate permission or denial |
@@ -187,4 +187,4 @@ Use labelled development/held-out examples, critical hallucination/injection cas
 
 Preserve correction history to respect human precedence and inspect revisions. Correction-derived memory, fine-tuning, training and automatic correction-to-eval collection remain excluded. Synthetic regression/evaluation work and the engineering [iteration log](docs/product/PRODUCT_ITERATION_LOG.md) still measure improvements.
 
-Remaining detailed settings are phase-scoped: exact model/provider access, limits/budgets, rounding/policy date, Ground Transport rules, source-version selection, release schema, session/token retention and operational checks. Integration sign-off requires real Gmail bytes on Railway, real extraction and both FX adapters, contextual sources, line resubmission/partial approval, approved API and tested session isolation. A configured secret or mocked successful call is not that evidence. See [README](README.md) for what currently runs.
+Remaining work follows the [live backlog](docs/product/BUILD_STATUS.md#live-pending-backlog): GPT-6.1 Sol migration and cost controls, private provider setup and budget approval, actual model/evaluation/FX/Arize proof, hosted deployment/Gmail/approval checks and measured product results. Policy review/local activation, source-version binding and the immutable release schema are implemented. Persistent production identity and automated retention/deletion remain outside the demonstrated demo. Integration sign-off requires real Gmail bytes on Railway, real extraction and both FX adapters, contextual sources, line resubmission/partial approval, approved API and tested session isolation. A configured secret or mocked successful call is not that evidence. See [README](README.md) for what currently runs.

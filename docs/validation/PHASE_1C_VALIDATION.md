@@ -1,5 +1,7 @@
 # Phase 1C — Consent-bound Gmail and early deployment preparation
 
+> Dated validation record. Earlier implementation, approval, provider and PR statements below describe the recorded checkpoint. Present status: [current ledger and backlog](../product/BUILD_STATUS.md); latest checks: [Arize validation](ARIZE_LOCAL.md). Policy review/local activation and the Arize migration are complete; live release gates remain pending.
+
 7 October 2026 (Europe/London). Branch `codex/phase-1c` from merged main `bb971287919639e0d1c3cba2876f841a9cdfba85` (PR #2). **Local implementation and initial hosted CI validated; Railway deployment and actual authorized Gmail attachment retrieval remain gates.** OAuth is optional mailbox access, never app login or manager authority. FastAPI/Python; no Supabase Auth or model/policy/approval calls.
 
 ## Boundaries implemented

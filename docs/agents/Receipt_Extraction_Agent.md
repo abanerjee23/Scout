@@ -2,13 +2,13 @@
 
 **A1 · Evidence to structured expense candidate**
 
-Updated: 7 October 2026  
-Owner: Abhinav  
-Status: detailed-design baseline v0.2; demo session/Gmail/human-precedence boundaries reconciled; executable Meal schema remains v0.1
+Updated: 8 October 2026. Owner: Abhinav.
 
-Implementation note (29 September 2026): [backend/unloop/contracts.py](../../backend/unloop/contracts.py) implements the first Meal output schema and context-reference checks, tested in Phase 0. This is not a running extraction agent. Air/GT processing, the full input/locked-field contract, currency membership and document-role integration gates remain implementation work. [ITER-001](../validation/ITER-001_VALIDATION.md) records the checks and limitations.
+Status: executable category schema v0.2 with v0.1 Meal compatibility; bounded SDK/worker, evidence validation and human precedence implemented and tested. Actual model quality remains unmeasured.
 
-[Product vision](../../Unloop_Vision.md) defines the product behaviour. [Architecture.md](../../Architecture.md) defines A1's system boundary. [Synthetic_T&E_Policy.md](../policy/Synthetic_T&E_Policy.md) supplies the draft governing clauses that consume A1's evidence-backed Air output. This document makes the Receipt Extraction Agent buildable and testable.
+Current implementation: [contracts.py](../../backend/unloop/contracts.py) retains the original Meal schema and adds the category schema; [extraction.py](../../backend/unloop/extraction.py) constructs a no-tool OpenAI Agents SDK call, and [expense_worker.py](../../backend/unloop/expense_worker.py) validates evidence, supported currencies, selected document roles and stale revisions before saving. Human locks are supplied as context and enforced by code on merge. The current model is gpt-6-luna with prompt `categories-a1-2`; owner-selected gpt-6.1-sol migration/cost controls are next. Paid extraction remains disabled locally. [Current ledger](../product/BUILD_STATUS.md) separates deterministic checks from live quality; [ITER-001](../validation/ITER-001_VALIDATION.md) retains the original scaffold evidence.
+
+[Product vision](../../Unloop_Vision.md) defines the product behaviour. [Architecture.md](../../Architecture.md) defines A1's system boundary. [Synthetic_T&E_Policy.md](../policy/Synthetic_T&E_Policy.md) supplies the owner-reviewed governing clauses that consume A1's evidence-backed Air output. This document makes the Receipt Extraction Agent buildable and testable.
 
 ## 1. Job and non-goals
 
@@ -34,7 +34,7 @@ The Python workflow coordinator validates A1's result, persists accepted values 
 |---|---|---|
 | Air | Journey type: `oneWay` or `return` | None in the minimum contract |
 | Meals | Meal type: `breakfast`, `lunch` or `dinner` | None in the minimum contract |
-| Ground Transport | Transport type: `publicTransport` or `taxi` | Origin and destination, only when present |
+| Ground Transport | Transport type: `publicTransport` or `taxi`; business journey and separately identified penalty amount | Origin and destination, only when present |
 
 Accommodation and any other category return `unsupportedCategory`. Breakfast, Lunch and Dinner must never be inferred from the amount alone.
 
@@ -50,7 +50,7 @@ The application constructs the input after validating the server-owned demo sess
 | `documents` | Yes | Authorised receipt plus any supporting documents |
 | `submissionCurrency` | Yes | Always `GBP` for the UK-company POC; context only, not an instruction to convert |
 | `supportedTaxonomy` | Yes | The exact category/type enums above |
-| `categoryOverride` | No | A user-corrected category/type that A1 must treat as locked |
+| `categoryOverride` | No | A user-corrected category that A1 must treat as locked; corrected type values are included in `lockedHumanFields` |
 | `lockedHumanFields` | No | User-entered or corrected values that A1 must not overwrite |
 
 Each document contains an application-issued `documentId`, declared role (`receipt` or `supportingDocument`), MIME type, page count and the authorised image/PDF content. Filenames and document text are untrusted data, not instructions.
@@ -97,8 +97,9 @@ Each reference contains:
 
 - application-supplied `documentId`;
 - one-indexed `pageNumber`;
-- a short supporting text snippet or visible label/value;
-- an optional normalised page region for later highlighting.
+- a short supporting text snippet or visible label/value.
+
+The current strict schema has no page-region field; regions/highlighting would require a schema change.
 
 References may point only to supplied documents and pages. Category may use multiple references. A value without support is rejected rather than silently saved.
 
@@ -163,6 +164,8 @@ The Meal policy permits one claim for each employee, receipt date and meal type:
 | `transportType` | Yes | `publicTransport` or `taxi`; user can correct |
 | `origin` | No | Extract if explicit; absence never blocks |
 | `destination` | No | Extract if explicit; absence never blocks |
+| `businessJourney` | Yes | `yes`/`no` from visible evidence; otherwise leave unresolved for employee confirmation |
+| `penaltyAmount` | Yes | Nonnegative decimal for separately identified cancellation/penalty charges; zero only when supported, otherwise unresolved |
 
 Vehicle details, distance, passenger count and a separate tip field are excluded. A tip already included in the receipt total stays within `originalAmount`.
 
@@ -210,7 +213,7 @@ Application code rejects or pauses an A1 result when any of these checks fail:
 - required fields remain `notFound` or `ambiguous`;
 - the result belongs to a stale expense revision.
 
-One bounded schema-repair attempt may correct malformed structure. It must not be used to pressure the model into supplying missing facts. Technical failure is shown as processing failure, not policy denial.
+The current adapter makes one structured-output call with no SDK retries and no schema-repair call. Invalid structure is rejected; only transient provider failures are eligible for the bounded worker retry path, with a new persisted reservation. Technical failure is shown as processing failure, not policy denial.
 
 ## 10. Handoff to deterministic services and A2
 
@@ -220,7 +223,7 @@ When A1 passes validation:
 2. If required information is missing, stop and request it.
 3. Use validated `receiptDate`, original amount and currency to perform deterministic FX conversion and store the original/full-GBP values.
 4. Run deterministic field and numeric policy rules, including any applicable Meal cap, and store the claim amount and excluded excess separately.
-5. Invoke A2 with only validated active facts, applicable policy sources and deterministic findings.
+5. Produce A2 findings with deterministic code using only validated active facts and applicable policy clauses; no separate A2 model call is made.
 
 A2 never receives inactive fields from a prior category. A1 does not receive A2's finding as evidence for changing receipt facts.
 
@@ -252,15 +255,12 @@ Measure:
 | Schema-valid result rate | Whether code can use the output reliably |
 | Latency, tokens and cost per expense | Whether the workflow is viable |
 
-Set numerical release thresholds before implementation tuning. Compare Luna with Sol only after failures are categorised; a stronger model is adopted only if measured quality gains justify its added cost and latency.
+The frozen receipt gates retain 95% required-field accuracy, 90% readable reviewability, required safe pauses and zero accepted critical errors; the paired policy gates are recorded separately. No live baseline has passed. Abhinav selected GPT-6.1 Sol on 8 October; migrate its settings and cost controls next, then measure quality, latency and spend against the preserved Luna baseline without retuning held-out labels.
 
-## 12. Decisions still needed before implementation
+## 12. Implemented decisions and remaining evidence
 
-- exact Pydantic/JSON schema and schema-version migration rules;
-- accepted airport/city representation and normalisation;
-- exact canonical cabin labels and how airline-specific branded fares map to Economy, Premium Economy or Business;
-- precise document-role mismatch rule for a booking confirmation uploaded as a receipt;
-- file/page limits and supported MIME types;
-- numerical evaluation thresholds and latency/cost budget.
+The strict category schema is v0.2; the v0.1 Meal contract remains available for compatibility. Airports/cities use a small fixture-backed alias map (including LHR/CDG), preserving city/airport distinctions and unsupported text rather than guessing. Canonical cabins are `economy`, `premiumEconomy` and `business`; known aliases such as coach are mapped, while unsupported branded fares remain unresolved. A complete result requires a readable selected primary final receipt; supporting confirmations cannot replace it.
 
-These are detailed-design decisions. They do not reopen the agreed product taxonomy or high-level architecture.
+JPEG/PNG/PDF originals are limited to 10 MiB and ten pages each; the complete selected A1 bundle is limited to ten pages and a configured conservative input envelope. Validation uses a 15-second wall timeout and 10-second CPU cap, plus 512 MiB on Linux. Native macOS lacks that memory cap. Ground Transport rules and policy effective date/rounding have been owner-reviewed and activated locally.
+
+Remaining evidence is the selected model migration, private account access, approved paid budget, live category extraction and image/PDF robustness, and actual latency/token/cost/held-out results. Use the [one-item-at-a-time backlog](../product/BUILD_STATUS.md#live-pending-backlog).

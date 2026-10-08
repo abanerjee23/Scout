@@ -1,9 +1,9 @@
 # Build, test, ship, repeat
 
-Updated: 7 October 2026  
+Updated: 8 October 2026
 Repository: [abanerjee23/UnLoop](https://github.com/abanerjee23/UnLoop)
 
-Abhinav authorized phased development and GitHub publication on 7 October. This is the full-version repository; the separate hackathon app uses abanerjee23/Un-Loop and remains independent. The root [build plan](../../BUILD_PLAN.md) defines scope and acceptance gates.
+Abhinav authorized phased development and GitHub publication on 7 October. This is the full-version repository; the separate hackathon app uses abanerjee23/Un-Loop and remains independent. The root [build plan](../../BUILD_PLAN.md) preserves the original scope and acceptance gates; the [current ledger/backlog](BUILD_STATUS.md) records subsequent decisions. Development runs locally, with one active chat and one pending item at a time.
 
 ## One delivery cycle
 
@@ -13,7 +13,8 @@ Abhinav authorized phased development and GitHub publication on 7 October. This 
 4. Fix failures and review the change, documentation, migrations and staged files. Exclude secrets, installed dependencies, caches, generated screenshots/build output and held-out answer leakage into model/UI inputs.
 5. Commit a coherent, tested increment with a clear message and push it to the authorized repository using ordinary fast-forward Git operations. The initial baseline starts main in the previously empty repository. Preserve remote history and reconcile new remote changes before subsequent pushes.
 6. Check the GitHub Actions run for the published commit. If it fails, diagnose, fix, validate and publish a follow-up. Start the next increment only when required checks pass or a documented external blocker requires independent work. Report the commit and actual CI status.
-7. Record measured results, limitations and the keep/revise decision. Repeat within the phase until all phase acceptance gates pass, then advance.
+7. Merge authorized, checked source increments into `main` using a PR, preserving history and checking the exact merge result. Source integration does not complete unverified provider or hosted gates. On 8 October Abhinav explicitly requested consolidation of all completed work and current documentation before model migration.
+8. Record measured results, limitations and the keep/revise decision. Continue with the next item in the live backlog, keeping external gates explicit.
 
 GitHub publication is what “ship” means for this requested loop. Railway deployment is separately tracked in the plan and can occur early for a useful hosted slice; a successful push does not prove hosted integration or reimbursement.
 

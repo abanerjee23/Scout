@@ -1,5 +1,7 @@
 # Phase 2 — persisted Meal preparation
 
+> Dated validation record. Earlier implementation, approval, provider and PR statements below describe the recorded checkpoint. Present status: [current ledger and backlog](../product/BUILD_STATUS.md); latest checks: [Arize validation](ARIZE_LOCAL.md). Policy review/local activation and the Arize migration are complete; live release gates remain pending.
+
 7 October 2026, Cloud `codex/phase-2`, stacked from reviewed Phase 1C `2808bc06ad09e9bc00933295ea7b40e8448351bc`, not merged/live accepted. Application test tree `ab5771e` includes the separate portable Docker follow-up; final delivery commit adds evidence documentation. FastAPI/Python and all Phase 0–1 access/evidence/Gmail behavior retained. BUILD_PLAN, archive and fixture bytes unchanged.
 
 Selected private validated originals become one owner/document expense across reports. Revision-bound bounded SDK output is validated against A1/document pages, retained as a suggestion with versions/provenance; no model tools, policy/FX/database writes, conversation or Gmail credentials. Human corrections are locked, revisioned and preserved on rerun. Jobs use committed claims, 90s leases, three attempts, fresh authority and idempotent revision checks. No transaction spans model/provider work. Dedicated fake adapters exercise real persistence and UI; they are not model/provider quality proof.

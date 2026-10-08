@@ -4,8 +4,9 @@
 
 Created: 28 September 2026  
 Owner: Abhinav  
-Updated: 7 October 2026  
-Status: ITER-004 Phase 1A local implementation validated; Supabase/provider and Git publication gates pending
+Updated: 8 October 2026
+
+Status: local expense/review workflow and Arize integration implemented; current documentation/source integration checkpoint is ITER-014. Policy review/local activation complete; selected model migration and live release gates pending. [Current ledger](BUILD_STATUS.md).
 
 ## Purpose
 
@@ -372,3 +373,14 @@ The Docker build exposed source-map-js 1.2.1 in the frontend toolchain. The lock
 **Implementation and evidence:** extraction, policy answers and embeddings emit validated OpenInference spans to fixed region-specific Arize OTLP endpoints. Runtime export uses an isolated child with a deadline; failures return fixed statuses and cannot change business records. The Arize SDK receives named evaluation scores from the frozen local scorers; default imports are private local previews with zero model/judge calls, and held-out exposure/upload remain explicit. Initial HTTP harness assumptions were corrected; actual payload testing then found inherited OpenTelemetry headers were merged into the request despite explicit headers. Clearing ambient OpenTelemetry settings in the child fixed that privacy issue. Native full regression: 381 passed, zero skips, 227.32 seconds; focused real OTLP/SDK/gate tests and Linux packaged web/worker/restart checks pass. Fixtures and thresholds are unchanged.
 
 **Decision and remaining evidence:** keep the Arize AX integration. Private account ingestion and actual model/held-out quality, cost, latency and savings remain unmeasured; no external account/project/dataset/experiment or paid call occurred. The reviewed policy is active locally and services were restarted. Continue one backlog item at a time. [Integration](../integrations/ARIZE.md), [validation](../validation/ARIZE_LOCAL.md).
+
+
+### ITER-014 — GitHub consolidation and current documentation
+
+**Date / scope:** 8 October 2026 / owner-requested checkpoint before backlog step 4.
+
+**Problem and decision:** completed local work was published on stacked branches while several current documents still described policy decisions and implemented workflows as pending. Consolidate the full candidate through [PR #5](https://github.com/abanerjee23/UnLoop/pull/5) into `main`, preserving commit history. Both earlier PR heads #3/#4 are ancestors of the consolidated branch. The original Cloud snapshot's application, frontend, scripts and dependency files match its rebased local handoff commit; later local fixes remain included. Source integration does not complete live provider or hosted release gates.
+
+**Documentation and verification:** reconcile the root vision/README/architecture, A1 category/SDK contract, migration/Gmail/deployment guides, case study, ledger and navigation. Record the active reviewed policy, Arize AX integration, current Luna code and selected next Sol migration. Label dated audits/validation records as historical and retain their measurements. Relative links/heading anchors, ten archived-original hashes, original BUILD_PLAN, frozen labels and release gates pass preservation checks. This checkpoint changes documentation only; the preceding exact implementation `50ab8b0` has green 382-backend/20-browser CI. The final source/docs commit and merge checks are authoritative in GitHub. Paid calls, account setup and deployment remain separate pending steps.
+
+**Next:** [backlog step 4](BUILD_STATUS.md#live-pending-backlog), GPT-6.1 Sol settings and cost controls, after this checkpoint.

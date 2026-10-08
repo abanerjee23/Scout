@@ -1,5 +1,7 @@
 # Phase 2 local handoff — 8 October 2026
 
+> Dated validation record. Earlier implementation, approval, provider and PR statements below describe the recorded checkpoint. Present status: [current ledger and backlog](../product/BUILD_STATUS.md); latest checks: [Arize validation](ARIZE_LOCAL.md). Policy review/local activation and the Arize migration are complete; live release gates remain pending.
+
 Owner authorized immediate local continuation in chat `01a11ac2-8651-7361-ba19-fa6626ab9752`, at `/Users/abhinavbanerjee/projects/vouch`. Cloud stops after snapshot export; no push/deploy or Phase 3 work.
 
 Snapshot is on `codex/phase-2`, based on exact `b1bad6fe52956a293b451ff78ebd7166d8d0ec94`. All six dirty source/test files were preserved; no untracked source was present. Dependencies, generated artifacts and secrets are excluded. BUILD_PLAN, archived/held-out fixtures and the separate hackathon repository are unchanged.

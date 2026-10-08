@@ -1,6 +1,6 @@
 # Unloop — Current state and Codex execution plan
 
-> Historical pre-implementation audit. Phase 1A has since been implemented on user-requested FastAPI/Python; see [Phase 1A validation](../validation/PHASE_1A_VALIDATION.md). The dated matrix below remains the audited baseline, not current completion status.
+> Historical pre-implementation audit from 7 October. Local FastAPI expense preparation, policy guidance, submission, partial approvals, approved-data API and Arize integration have since been implemented and tested. Use the [current delivery ledger and live backlog](BUILD_STATUS.md) for present status. The dated matrix and audit-only permissions below describe that original audit, not the current task.
 
 Audit date: 7 October 2026 (Europe/London). Repository inspected: `/Users/abhinavbanerjee/projects/vouch`. Configured remote: `https://github.com/abanerjee23/UnLoop.git`. Local branch: `main`, with **no commits and no tracked files** at audit time. The remote advertised **no branches or tags**. This report describes the inspected filesystem, not an identifiable released commit.
 
