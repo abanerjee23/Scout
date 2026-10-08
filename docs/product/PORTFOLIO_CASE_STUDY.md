@@ -43,4 +43,6 @@ A1, embedding and A3 calls share persistent owner/global call and conservative r
 
 ## Remaining live release gates
 
-Owner decisions on policy effective date/rounding, Ground Transport rules and paid budget; private API credentials/account availability; real extraction and primary/fallback FX; Galileo trace confirmation; paired held-out receipt/policy results; Railway/Supabase app-schema runtime; exact HTTPS OAuth callback and human Gmail consent/attachment retrieval; hosted recovery/privacy checks; measured user-time/cost/latency. Teams is limited to in-app/copyable review context unless a real launch is separately configured and demonstrated. No payment or ERP posting is included.
+Owner decisions on policy effective date/rounding, Ground Transport rules and paid budget; private API credentials/account availability; real extraction and complete primary/fallback FX journeys; Galileo trace confirmation; paired held-out receipt/policy results; Railway/Supabase app-schema runtime; exact HTTPS OAuth callback and human Gmail consent/attachment retrieval; hosted recovery/privacy checks; measured user-time/cost/latency. Teams is limited to in-app/copyable review context unless a real launch is separately configured and demonstrated. No payment or ERP posting is included.
+
+A direct public ECB adapter check returned exact-date EUR→GBP `0.85373` for 1 October 2026 and left a 3 October weekend request Conversion pending. This is real adapter/date-handling evidence; it is not a live extracted-receipt journey or OXR fallback success.
