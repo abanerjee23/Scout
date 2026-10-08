@@ -119,6 +119,31 @@ def test_credential_presence_alone_never_activates_traces(monkeypatch):
     assert "synthetic-key" not in repr(ArizeSettings.load(CONFIG))
 
 
+@pytest.mark.parametrize(
+    "region", ["us", "eu-west-1a", "ca-central-1a", "us-central-1a", "us-east-1b"]
+)
+def test_account_region_routes_runtime_and_experiments_to_matching_hosts(monkeypatch, region):
+    import arize
+    from arize.config import SDKConfiguration
+
+    settings = ArizeSettings.load({**CONFIG, "ARIZE_REGION": region})
+    suffix = "arize.com" if region == "us" else f"{region}.arize.com"
+    assert settings.endpoint == f"https://otlp.{suffix}/v1/traces"
+    captured = {}
+
+    def client(**kwargs):
+        captured["config"] = SDKConfiguration(**kwargs)
+        return SimpleNamespace(
+            experiments=SimpleNamespace(create=lambda **_kwargs: SimpleNamespace(id="synthetic"))
+        )
+
+    monkeypatch.setenv("ARIZE_REGION", region)
+    monkeypatch.setattr(arize, "ArizeClient", client)
+    result = publish(prepare("policy", [], policy=POLICY), "unloop-synthetic", settings)
+    assert result.id == "synthetic"
+    assert captured["config"].api_host == f"api.{suffix}"
+
+
 def test_metadata_slots_reject_injected_private_strings_and_invalid_numbers():
     assert (
         safe_metadata(

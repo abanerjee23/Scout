@@ -397,8 +397,8 @@ The Docker build exposed source-map-js 1.2.1 in the frontend toolchain. The lock
 
 ### ITER-016 — Local provider setup and FX credential wiring
 
-**Date / scope:** 8 October 2026 / backlog item 5, in progress.
+**Date / scope:** 8 October 2026 / backlog item 5.
 
 **Problem and change:** the private example and setup doctor named the FX key `OPEN_EXCHANGE_RATES_APP_ID`, while the worker read only `OXR_APP_ID`. The worker now uses the canonical name and preserves the legacy alias for existing deployments. No key values are displayed, committed or sent to a provider during setup verification.
 
-**Evidence and remaining gate:** lint and eight synthetic exact-date ECB/OXR fallback checks pass, covering canonical, legacy, precedence and empty canonical settings. Presence-only verification confirms the three provider keys locally. Arize space/project/region configuration remains pending. Paid extraction and Arize export remain disabled; budget fields are reserved for step 6. Authentication, historical-data access and account ingestion remain live-validation gates.
+**Evidence and remaining gate:** lint and eight synthetic exact-date ECB/OXR fallback checks pass, covering canonical, legacy, precedence and empty canonical settings. Presence-only verification confirms the three provider keys locally. At the owner's request, the signed-in Chrome Arize setup supplied the Default Space ID and showed the US data plane. Those destination fields are saved only in the ignored local `.env`, with project name `unloop`. The exporter and experiment adapter now support the standard US hosts shown by the account and official documentation, preserving existing regional options; all 17 Arize tests pass. Local Arize configuration validates without export. Paid extraction and Arize export remain disabled; budget fields are reserved for step 6. Authentication, historical-data access and account ingestion remain live-validation gates.

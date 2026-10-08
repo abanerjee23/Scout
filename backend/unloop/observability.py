@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from time import time_ns
 
-REGIONS = {"us-central-1a", "us-east-1b", "eu-west-1a", "ca-central-1a"}
+REGIONS = {"us", "us-central-1a", "us-east-1b", "eu-west-1a", "ca-central-1a"}
 MODELS = {"gpt-6-luna", "gpt-6.1-sol", "text-embedding-3-small"}
 PROMPTS = {"meal-a1-1", "meals-a1-1", "categories-a1-2", "policy-a3-1", "clauses-v1"}
 SCHEMAS = {"0.1", "0.2", "policy-1", "embeddings-1"}
@@ -81,6 +81,8 @@ class ArizeSettings:
 
     @property
     def endpoint(self):
+        if self.region == "us":
+            return "https://otlp.arize.com/v1/traces"
         return f"https://otlp.{self.region}.arize.com/v1/traces"
 
 

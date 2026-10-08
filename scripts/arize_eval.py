@@ -159,7 +159,9 @@ def publish(packet, name, settings, *, client=None):
         raise ValueError("Invalid experiment name")
     metrics = POLICY_METRICS if packet["suite"] == "policy" else MEAL_METRICS
     client = client or ArizeClient(
-        api_key=settings.key, region=Region(settings.region), enable_caching=False
+        api_key=settings.key,
+        region=Region.UNSET if settings.region == "us" else Region(settings.region),
+        enable_caching=False,
     )
     experiment = client.experiments.create(
         name=name,
