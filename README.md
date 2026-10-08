@@ -2,11 +2,13 @@
 
 Expense report preparation with an Employee/Manager demo workspace.
 
-**Current implementation: Phase 1C on FastAPI/Python (local checks passed; hosted/live Gmail gates pending).** An employee can describe a report to Astra, review/correct its name, explicit dates and business purpose, confirm it, and reopen the saved report. PostgreSQL owns sessions, profiles and reports. Manager mode cannot inspect employee drafts. This is a persona demonstration, not production multi-user authentication.
+**Development moved to the local Mac on 8 October 2026.** The active `codex/local-phase-2` branch contains the Cloud Phase 2 review fixes; final review and live release gates remain pending. See [local development and handoff](docs/product/LOCAL_DEVELOPMENT.md) for the current run/test workflow.
+
+**Current implementation: Phase 2 review candidate on FastAPI/Python; live release gates pending.** An employee can describe a report to Astra, review/correct its name, explicit dates and business purpose, confirm it, and reopen the saved report. PostgreSQL owns sessions, profiles and reports. Manager mode cannot inspect employee drafts. This is a persona demonstration, not production multi-user authentication.
 
 Astra report intake is **deterministic**, with no model/API call: it recognizes supported explicit date formats and asks for review when fields are missing or ambiguous. Confirmation and database writes belong to application code. No manager details are requested.
 
-Chat/workspace JPEG, PNG and PDF uploads share retained session-private evidence and leased PostgreSQL validation jobs. Consent-bound Gmail OAuth/scans and early Railway image packaging are locally tested; real Gmail and deployment remain unverified. **Not implemented:** extraction, policy assessment, FX, submission, approval, Teams or RAG. The separately labelled synthetic Meal preview remains at `/?preview=1`; its values are expected outcomes, not extracted/saved expenses.
+Chat/workspace JPEG, PNG and PDF uploads share retained session-private evidence and leased PostgreSQL validation jobs. Consent-bound Gmail OAuth/scans and early Railway image packaging are locally tested; real Gmail and deployment remain unverified. Phase 2 adds saved Meal suggestions/corrections, bounded extraction jobs, Decimal calculations and exact-date FX adapters. Paid extraction and financial assessment are disabled by default; deterministic tests do not establish model quality or provider access. **Not implemented:** Air/Ground Transport assessment, submission, approval, Teams or RAG. The separately labelled synthetic Meal preview remains at `/?preview=1`; its values are expected outcomes, not extracted/saved expenses.
 
 Local PostgreSQL integration and real API/browser checks pass. Phase 1A hosted CI and [live Supabase smoke](docs/validation/SUPABASE_PHASE_1A_SMOKE.md) passed before PR #1 merged. Phase 1B passed hosted CI and its isolated live evidence gate, merged in PR #2; Phase 1C still needs real Gmail/deployment proof; this does not claim full Phase 1 completion. See [Phase 1A validation](docs/validation/PHASE_1A_VALIDATION.md).
 
@@ -73,12 +75,12 @@ npm run build --prefix frontend
 cd frontend
 npx playwright install chromium
 cd ..
-uv run --env-file .env -- npm test --prefix frontend
+uv run --env-file .env -- npm test --prefix frontend -- --workers=2
 ```
 
 `TEST_DATABASE_URL` must reference a dedicated test/development PostgreSQL database. Tests create/drop uniquely named schemas and apply actual Alembic migrations; they never truncate application tables in the public schema. The backend tests cover cookie/expiry, CSRF, ownership, grade/persona spoofing, validation, concurrent confirmation and restart. Browser workspace tests start a real API with a separate disposable schema and do not intercept report/session responses. Ports 5001 and 5173 must be free during browser tests.
 
-Without `TEST_DATABASE_URL`, integration/browser workspace tests explicitly skip; that is not a passing 1A persistence gate. CI supplies PostgreSQL 17 and fails if required DB configuration is absent. The two retained preview tests stub health only. Screenshots/build output stay ignored. The browser server starts a real worker subprocess against its explicit isolated schema. The worker processes structural validation only, with no model or provider calls.
+Without `TEST_DATABASE_URL`, integration/browser workspace tests explicitly skip; that is not a passing 1A persistence gate. CI supplies PostgreSQL 17 and fails if required DB configuration is absent. The two retained preview tests stub health only. Screenshots/build output stay ignored. The browser server starts a real worker subprocess against its explicit isolated schema. Baseline browser tests use structural validation; dedicated Meal tests explicitly inject fake A1/FX adapters. Normal workers keep paid extraction disabled unless its reviewed runtime fields are configured.
 
 The fixture checker validates 24 labelled Meals (12 development / 12 held-out), **not model quality**. The A1 v0.1 schema and fixtures remain unchanged. Do not feed held-out expected labels into UI/model input. [Fixture guidance](fixtures/meals/README.md) records diversity and integration gaps.
 

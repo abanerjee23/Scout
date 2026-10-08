@@ -10,6 +10,7 @@ The root [vision](../Unloop_Vision.md), [architecture](../Architecture.md), [bui
 | [policy](policy/Synthetic_T&E_Policy.md) | Draft synthetic T&E clauses; effective date and Ground Transport remain pending |
 | [integrations](integrations/GMAIL.md) | Gmail connection/scan design, existing setup and future production gates |
 | [product](product/PRODUCT_ITERATION_LOG.md) | Engineering hypotheses, iterations, results, decisions and [delivery workflow](product/DELIVERY_WORKFLOW.md) |
+| [local development](product/LOCAL_DEVELOPMENT.md) | Cloud handoff, active local branch, service commands and remaining validation gates |
 | [validation](validation/PHASE_1A_VALIDATION.md) | Phase 1A FastAPI/PostgreSQL evidence, historical scaffold records and documentation verification |
 
 Historical evidence is labelled with its original date. It is not fresh proof of the revised application. Correction learning is out of scope; the iteration log and synthetic engineering evals do not introduce it. Superseded source versions and old diagrams live in [archive](../archive/README.md), outside the current requirement set.
