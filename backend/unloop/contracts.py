@@ -1,4 +1,4 @@
-"""A1 v0.1 Meal output schema; no model or workflow writes."""
+"""A1 v0.1 compatibility and v0.2 category outputs; zero write authority."""
 
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -87,6 +87,51 @@ class MealFields(StrictModel):
         return self
 
 
+class AirFields(StrictModel):
+    journeyType: FieldResult
+    origin: FieldResult
+    destination: FieldResult
+    departureDate: FieldResult
+    returnDate: FieldResult
+    cabinClass: FieldResult
+
+    @model_validator(mode="after")
+    def validate_air(self):
+        if self.journeyType.value and self.journeyType.value not in {"oneWay", "return"}:
+            raise ValueError("Unknown journey type")
+        from unloop.category_fields import cabin
+
+        if self.cabinClass.value and cabin(self.cabinClass.value) is None:
+            raise ValueError("Unmapped cabin must remain unresolved")
+        for field in [self.departureDate, self.returnDate]:
+            if field.value and date.fromisoformat(field.value).isoformat() != field.value:
+                raise ValueError("Use YYYY-MM-DD travel dates")
+        if self.returnDate.value and self.departureDate.value:
+            if self.returnDate.value < self.departureDate.value:
+                raise ValueError("Return must not precede departure")
+        return self
+
+
+class GroundFields(StrictModel):
+    transportType: FieldResult
+    origin: FieldResult
+    destination: FieldResult
+    businessJourney: FieldResult
+    penaltyAmount: FieldResult
+
+    @model_validator(mode="after")
+    def validate_ground(self):
+        if self.transportType.value and self.transportType.value not in {"taxi", "publicTransport"}:
+            raise ValueError("Unknown transport type")
+        if self.businessJourney.value and self.businessJourney.value not in {"yes", "no"}:
+            raise ValueError("Business journey must be established")
+        if self.penaltyAmount.value:
+            amount = Decimal(self.penaltyAmount.value)
+            if not amount.is_finite() or amount < 0:
+                raise ValueError("Penalty must be finite and nonnegative")
+        return self
+
+
 class Issue(StrictModel):
     field: str
     reason: Literal[
@@ -158,9 +203,50 @@ def validate_context(
         *[getattr(result.commonFields, name) for name in CommonFields.model_fields],
     ]
     if result.categoryFields:
-        fields.append(result.categoryFields.mealType)
+        fields.extend(
+            getattr(result.categoryFields, key) for key in type(result.categoryFields).model_fields
+        )
     refs = [ref for field in fields for ref in field.evidenceRefs]
     refs.extend(ref for issue in result.issues for ref in issue.evidenceRefs)
     for ref in refs:
         if ref.documentId not in document_pages or ref.pageNumber > document_pages[ref.documentId]:
             raise ValueError("Evidence points outside the authorised document bundle")
+
+
+class CategoryExtractionResult(ExtractionResult):
+    schemaVersion: Literal["0.2"]
+    categoryFields: MealFields | AirFields | GroundFields | None
+
+    @model_validator(mode="after")
+    def check_complete(self):
+        from unloop.category_fields import required
+
+        category = self.classification.value
+        expected = {"meals": MealFields, "air": AirFields, "groundTransport": GroundFields}
+        if category and category not in expected:
+            raise ValueError("Unknown category")
+        if self.categoryFields is not None and not isinstance(
+            self.categoryFields, expected.get(category, type(None))
+        ):
+            raise ValueError("Category fields must match classification")
+        if self.resultState == "complete":
+            fields = {key: getattr(self.commonFields, key) for key in CommonFields.model_fields}
+            fields["category"] = self.classification
+            if self.categoryFields:
+                fields.update(vars(self.categoryFields))
+            facts = {key: value.value for key, value in fields.items()}
+            if (
+                self.categoryFields is None
+                or self.issues
+                or any(
+                    fields.get(key) is None or fields[key].state != "supported"
+                    for key in required(facts)
+                )
+            ):
+                raise ValueError("Complete requires every applicable fact and no issues")
+        return self
+
+
+def parse_extraction(value):
+    schema = CategoryExtractionResult if value.get("schemaVersion") == "0.2" else ExtractionResult
+    return schema.model_validate(value)

@@ -5,11 +5,11 @@ type Props = { reports: Report[]; selectedId?: string; loading: boolean; onSelec
 export default function ReportList({ reports, selectedId, loading, onSelect, onNew }: Props) {
   return <aside className="w-report-list" aria-label="Your reports">
     <div className="w-section-title"><h2>Your reports</h2><button className="w-text-button" disabled={loading} onClick={onNew}>New report</button></div>
-    <p className="w-muted">Employee drafts</p>
+    <p className="w-muted">Your saved reports</p>
     {loading ? <p role="status">Loading reports…</p> : reports.length === 0 ?
       <p className="w-list-empty">No saved reports yet. Describe your trip to Astra to begin.</p> :
       <ul>{reports.map(report => <li key={report.id}><button className="w-report-link" aria-pressed={selectedId === report.id} onClick={() => onSelect(report.id)}>
-        <strong>{report.name}</strong><span>{dateLabel(report.startDate)} – {dateLabel(report.endDate)}</span><small>Draft</small>
+        <strong>{report.name}</strong><span>{dateLabel(report.startDate)} – {dateLabel(report.endDate)}</span><small>{report.status.replaceAll('_', ' ')}</small>
       </button></li>)}</ul>}
   </aside>;
 }

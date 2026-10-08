@@ -1,5 +1,7 @@
 # Phase 1B — Retained evidence and recoverable validation jobs
 
+> Dated validation record. Earlier implementation, approval, provider and PR statements below describe the recorded checkpoint. Present status: [current ledger and backlog](../product/BUILD_STATUS.md); latest checks: [Arize validation](ARIZE_LOCAL.md). Policy review/local activation and the Arize migration are complete; live release gates remain pending.
+
 7 October 2026 (Europe/London). One Cloud implementation agent; branch `codex/phase-1b` from merged main `ac277d74496742deb584cdea16233b8ace0091a2` (PR #1). Full-version `abanerjee23/UnLoop`, no manual worktree. [Current delivery ledger](../product/BUILD_STATUS.md) carries standing authorization and next gates.
 
 **Result: Phase 1B verified and review approved, ready for parent merge in [PR #2](https://github.com/abanerjee23/UnLoop/pull/2).** Verified 7 October 2026 at `599a391c009674d44dca9ad8275f4901ddb13031`: [hosted run 37673483432](https://github.com/abanerjee23/UnLoop/actions/runs/37673483432) passed **186 backend / 9 Chromium tests, zero skips**, and live Supabase job `112972061482` passed, including `evidence_bytes_dedup_restart_worker_recovery:true` and `schema_cleanup:true`. This proves synthetic isolated-schema provider persistence/restart/worker recovery; it does not prove Gmail, deployed UI/worker or production public migrations. Parent disabled `RUN_SUPABASE_SMOKE=false` after success. No AI/claims, submission or approval is included.

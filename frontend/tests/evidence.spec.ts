@@ -17,11 +17,11 @@ test('real chat and workspace upload dedup, worker validation, original download
   const workspace = page.getByRole('region', { name: 'Workspace evidence' });
   await chat.getByLabel('Chat files').setInputFiles({ name: 'receipt.png', mimeType: 'image/png', buffer: png });
   await chat.getByRole('button', { name: 'Upload evidence' }).click();
-  await expect(chat.getByText('Evidence saved', { exact: false })).toBeVisible();
+  await expect(chat.getByText('Evidence saved', { exact: false })).toBeVisible({ timeout: 30000 });
   await expect(workspace.getByText('Validated · retained', { exact: true })).toBeVisible({ timeout: 30000 });
   await workspace.getByLabel('Workspace files').setInputFiles({ name: 'renamed.png', mimeType: 'image/png', buffer: png });
   await workspace.getByRole('button', { name: 'Upload evidence' }).click();
-  await expect(workspace.getByText('1 existing document(s) reused.', { exact: false })).toBeVisible();
+  await expect(workspace.getByText('1 existing document(s) reused.', { exact: false })).toBeVisible({ timeout: 30000 });
   await expect(workspace.getByText('chat / workspace', { exact: false })).toBeVisible();
   await expect(workspace.getByRole('link', { name: 'Download original' })).toHaveCount(1);
   const original = await workspace.getByRole('link', { name: 'Download original' }).getAttribute('href');
@@ -34,6 +34,7 @@ test('real chat and workspace upload dedup, worker validation, original download
   await page.reload();
   await expect(workspace.getByText('Validated · retained', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Manager', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Manager', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(workspace).toHaveCount(0);
   expect((await context.request.get(original!)).status()).toBe(403);
 });

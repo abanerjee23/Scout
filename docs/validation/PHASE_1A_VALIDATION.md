@@ -1,5 +1,7 @@
 # Phase 1A — Implementation and validation
 
+> Dated validation record. Earlier implementation, approval, provider and PR statements below describe the recorded checkpoint. Present status: [current ledger and backlog](../product/BUILD_STATUS.md); latest checks: [Arize validation](ARIZE_LOCAL.md). Policy review/local activation and the Arize migration are complete; live release gates remain pending.
+
 Date: 7 October 2026 (Europe/London).
 
 Scope: server-owned demo sessions/personas, deterministic Astra report proposal/review/confirmation, PostgreSQL-backed report list/read/reopen. Backend is **FastAPI/Python**, explicitly requested by the user after the audit. One implementation agent, branch `codex/phase-1a`, no manual worktree.

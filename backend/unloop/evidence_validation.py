@@ -75,7 +75,10 @@ def main():
     import logging
     import resource
 
-    resource.setrlimit(resource.RLIMIT_AS, (512 * 1024 * 1024, 512 * 1024 * 1024))
+    # Darwin rejects this address-space limit. Linux deployment retains the cap;
+    # native macOS development still uses the CPU and parent wall-time limits.
+    if sys.platform != "darwin":
+        resource.setrlimit(resource.RLIMIT_AS, (512 * 1024 * 1024, 512 * 1024 * 1024))
     resource.setrlimit(resource.RLIMIT_CPU, (10, 10))
 
     logging.disable(logging.CRITICAL)

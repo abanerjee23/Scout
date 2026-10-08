@@ -4,8 +4,9 @@
 
 Created: 28 September 2026  
 Owner: Abhinav  
-Updated: 7 October 2026  
-Status: ITER-004 Phase 1A local implementation validated; Supabase/provider and Git publication gates pending
+Updated: 8 October 2026
+
+Status: local expense/review workflow and Arize integration implemented; current documentation/source integration checkpoint is ITER-014. Policy review/local activation complete; selected model migration and live release gates pending. [Current ledger](BUILD_STATUS.md).
 
 ## Purpose
 
@@ -269,3 +270,117 @@ After success the owner set `RUN_SUPABASE_SMOKE=false`; the repository secret re
 Upload authentication now uses a short unlocked read transaction before multipart intake, releases it before body receipt/validation, and acquires a fresh locking transaction only after the whole batch validates. Cookie/token, expiry, CSRF, employee persona and report ownership are checked again before dedup/bytes/links/jobs writes. Other Phase 1A routes retain their existing locking behavior. Multipart content-type errors now describe multipart intake correctly.
 
 Delayed-validation regressions prove same-session reads and persona switching complete promptly; a persona switch or expiry during validation produces zero document/byte/link/job rows. Existing concurrent dedup tests remain. Targeted checks: four passed; full mandatory PostgreSQL suite with CI=true/GITHUB_ACTIONS=true: **186 passed, zero skips**; Chromium real API/PostgreSQL/worker suite: **9 passed, zero skips**; Ruff and diff whitespace checks passed. An initial test setup used the wrong persona route and violated the expiry ordering constraint; those test setup errors were corrected before the successful full run. Hosted/live follow-up passed at the exact commit/run above; earlier failures are historical.
+
+### ITER-008 — Consent-bound Gmail evidence and early deployment packaging
+
+**Date / phase:** 7 October 2026 / Phase 1C; branch `codex/phase-1c` from merged main `bb971287919639e0d1c3cba2876f841a9cdfba85`.
+
+**Hypothesis:** a separately authorized, bounded report scan can retain Gmail attachments through the shared evidence pipeline without continuous mailbox access or weakening owner authority.
+
+**Acceptance:** single-use session-bound OAuth; dedicated mailbox allowlist; encrypted versioned tokens and refresh/disconnect/expiry races; explicit revision/window/expiry-bound scans; bounded durable partial/retry/dedup/provenance; no DB locks during external work; employee/CSRF/origin ownership; honest disabled/denied/empty/partial UI; real PostgreSQL/browser regression and reversible aligned migration. Package same-origin FastAPI/React and separate worker for early Railway validation. Actual private credential/callback/consent/attachment and deployment proof remain parent-owned gates, not mock successes. No AI/policy/approval or Phase 2 features.
+
+
+**ITER-008 validation/decision:** 226 backend / 10 Chromium passed, zero skips with mandatory native PostgreSQL; frozen sync/Ruff/24-case fixture integrity (zero models)/worker check/React build passed. Fresh/populated migration and downgrade/re-upgrade/metadata checks passed. Real OS-process scan crash/reclaim and original bytes/checkpoints proved locally with an explicit fake Google adapter. Lead-review truncation/stale-consent/token-format checks resolved. Keep the increment pending hosted CI and actual Railway/Gmail gates; no live provider claim or next phase. Exact runtime fields and dashboard settings are in [deployment handoff](../integrations/PHASE_1C_DEPLOYMENT.md). Phase 1B is merged in PR #2 at main `bb971287`.
+
+Final packaging proof: non-root image served built React/assets; real FastAPI/native PostgreSQL upload plus a separate image worker validated bytes; originals survived web-container restart and unique schema cleanup completed. Callback privacy response assertions: eight targeted checks passed, 32 deselected (no skipped DB tests); final image smoke includes `no-referrer`. Worker CLI failure output is fixed/sanitized. Railway services remain offline setup only.
+
+Lead-review follow-up: published `69f582abb4364f8f98cece00b9b2ab53c4476f76` passed hosted [run 37679353634](https://github.com/abanerjee23/UnLoop/actions/runs/37679353634), 226 backend/10 browser, zero skips; draft [PR #3](https://github.com/abanerjee23/UnLoop/pull/3). Live Supabase deliberately skipped. Narrow follow-up adds named inline MIME evidence via shared validation, actual client TLS flag enforcement, unlocked authority recheck between OAuth exchange/profile, and exact-origin guards. Fourteen focused regressions passed (40 deselected, zero skips); fake HTTP and native PostgreSQL remain offline proof. Private Railway credential fields are pending owner entry; services are offline, no live Gmail or deployment claim.
+
+Follow-up complete mandatory PostgreSQL suite: **240 passed, zero skips**, one existing Starlette/httpx warning (82.59s); Ruff/diff checks passed. The inline persistence test was then strengthened and passed across two actual API OS processes (one passed, 53 deselected), without further application changes. No UI/image/migration changes or manual browser/image reruns; the initial hosted 10-browser/image evidence remains scoped to its tested commit. Follow-up hosted CI remains pending publication.
+
+### ITER-009 — Saved Meal facts, bounded extraction and code-owned calculations
+
+**Date / phase:** 7 October 2026 / Phase 2; stacked `codex/phase-2` from reviewed `2808bc06ad09e9bc00933295ea7b40e8448351bc`. Phase 1C remains unmerged/live-gated; its follow-up hosted [run 37681580232](https://github.com/abanerjee23/UnLoop/actions/runs/37681580232) passed backend/frontend, live Supabase deliberately skipped.
+
+**Hypothesis:** authorized evidence can become a durable, correctable Meal candidate with locked human facts and contextual questions, while all model output remains untrusted and financial arithmetic/version/duplicate authority remains code-owned.
+
+**Acceptance before building:** real PostgreSQL revisions, selected private bytes only, bounded Agents SDK `gpt-6-luna` output/reference validation, immutable suggestions and recoverable revision-safe jobs; correction/reload/duplicate/conflict behavior; Decimal full GBP/claim/excess and exact-date FX precedence; contextual receipt/field workspace and honest inactive/provider failures. Draft policy effective date/rounding and paid budget remain owner gates. Test candidate rounding only in explicit synthetic test configuration. No live credentials/calls, automatic model upgrade, held-out tuning, correction learning, A2/Phase 3+, submission or approval.
+
+
+**Build / evidence:** retained selected originals/owner dedup; revision-safe suggestions/jobs, persisted human locks and calculation history; contextual desktop/mobile Meal editor/Astra questions; fixed no-tool Agents SDK baseline and minimized Galileo diagnostics; exact-date Decimal FX adapters and inactive trusted policy configuration. New migration0005 preserves Phase1 rows on upgrade/reversal. Complete mandatory native-PG suite298passed/0skips157.78s; full Chromium12passed/0skips26.4s after a disclosed earlier9/12 timing failure, no weakened assertions. Frozen sync, Ruff, fixture24-case integrity (0model runs), workercheck and locked frontendbuild passed. Real API OS restart, worker crash/reclaim, duplicate/conflict ownership and populated migration/reversal/alignment passed. Portable Phase1C packaging fixed separately at06444e7 and incorporated here; production CA settings remain outside Dockerfile.
+
+**Conclusion / remaining gates:** hypothesis supported for deterministic storage/access/revisions/calculation behavior, not actual model accuracy or provider integration. No live/paid model/FX/Galileo calls; frozen model quality gates unmeasured. Effective-date/rounding and paid ceiling remain inactive owner decisions. Root has private Railway fields, staged services and reviewed Phase1C CI, but public runtime/Gmail acceptance and unloop_app migrations remain pending; legacy public tables untouched. Parent publishes/reviews this stacked increment; no merge or Phase3–6 implementation. [Validation](../validation/PHASE_2_VALIDATION.md), [runtime configuration](../integrations/PHASE_2_RUNTIME.md).
+
+### Local development migration on 8 October 2026
+
+**Hypothesis:** reusing the Mac checkout, dependencies and local services will reduce setup and handoff friction. Iteration speed has not yet been compared on equivalent tasks.
+
+**Change and acceptance:** Abhinav authorized immediate local handoff. The final Cloud Phase 2 fixes were preserved in a checksum-verified snapshot and aligned onto published Phase 1C on `codex/local-phase-2`. Cloud implementation stopped and its follow-up is paused. Existing configuration/data were backed up; native macOS receipt parsing was repaired while preserving Linux memory enforcement. Acceptance required real PostgreSQL persistence/worker/browser checks, runnable local services and preserved source/configuration.
+
+**Evidence and next step:** 316 backend tests passed with zero skips; 14 Chromium tests passed with two workers after a disclosed four-worker run failed five loading/readiness checks. Ruff/build/migration alignment/fixture integrity/worker/release-gate checks passed. No paid model call, policy activation, remote database migration or deployment. Continue final Phase 2 review locally, keeping unresolved code-review and live/product gates visible. [Local workflow](LOCAL_DEVELOPMENT.md), [migration evidence](../validation/PHASE_2_LOCAL_HANDOFF.md).
+
+### Local Phase 2 correction review — 8 October 2026
+
+**Hypothesis:** document eligibility and category classification must remain separate, and optional VAT uncertainty must never survive as a blocking legacy issue.
+
+**Change:** readable final receipts with unsupported categories can be explicitly corrected without self-declaring document eligibility; legacy VAT-only issues clear during calculation recheck; exclusion/restore preserves previously confirmed human facts. Unsupported model results still pause until a confirmed category correction.
+
+**Evidence:** targeted Meal run found one unsupported-state regression (76 passed, one failed); repaired the condition and reran all six affected regressions, all passed. Existing full local migration baseline remains 316 backend/14 browser tests; these new checks are deterministic, not model-quality evidence.
+
+**Decision:** retain fixes and continue category coverage locally. Real provider, approved policy activation and hosted acceptance remain separate gates.
+
+### ITER-010 — Category coverage and evidence-backed assessment
+
+**Date / phase:** 8 October 2026 / Phase 3
+
+**Hypothesis:** extending the revisioned workspace to Air and Ground Transport with explicit required fields, supporting-document references and code-owned checks will enable mixed reports without weakening evidence or financial authority.
+
+**Acceptance before implementation:** preserve v0.1 Meal fixtures; schema v0.2 covers category-specific fields and exact authorized document references; category changes deactivate old fields; Air cabin derives from evidence and server grade only; unknown cabin, missing grade, missing rules and noncompliance remain explicit pauses; Ground Transport assessment stays inactive pending owner rules; approved source/version/checklist appears beside results. Financial calculations remain Decimal, human locks survive reruns and no model can waive restrictions. Real provider gates remain unmeasured until private access and spending approval.
+
+**ITER-010 build and validation:** schema v0.2 covers Air and Ground Transport while v0.1 Meal fixtures remain unchanged. The workspace deactivates unrelated fields; selected supporting evidence is owner/report/version checked. A fixed cabin vocabulary, evidence-backed cabin check, server grade table, approved-source registry, required-rule checklist and Decimal travel amounts are implemented. Ground policy remains inactive without explicit approval. A2 currently renders deterministic findings; generative explanation quality is not claimed.
+
+The initial full run passed 331 checks and found a supporting-document UUID parsing defect; the affected real PostgreSQL regression passed after repair. Fifteen Chromium checks then passed with **four workers** (59.8s), including the new category/cabin clarification flow. Prior CI reproduced session-loading failures: polling reads no longer take mutation row locks, while all mutations and post-upload/OAuth writes retain fresh owner locks. A dedicated held-lock test proves four session reads complete within two seconds. An early browser privacy assertion ran before persona switching committed; it now waits for the server-confirmed persona before asserting denied access. No weakened access assertion or additional retry was added.
+
+**Decision:** retain category/evidence and polling fixes; publish for CI while completing independent policy assistance work. Policy activation, spending approval, model/FX/Galileo quality, hosted Gmail and Railway gates remain open. No real provider call has occurred.
+
+### ITER-011 — Policy guidance with approved, versioned passages
+
+**Date / phase:** 8 October 2026 / Phase 4
+
+**Hypothesis:** clause-aware pgvector retrieval plus mandatory governing restrictions can answer report-linked questions with inspectable citations while preserving workflow authority and policy-version alignment.
+
+**Acceptance before implementation:** pin text-embedding-3-small, dimensions, source hash and index version; retrieve only approved applicable snapshots; validate every returned identifier and exact quoted passage; keep required rules available independently of top-k; no tools or write authority for A3. Missing policy/provider/index is recoverable guidance-unavailable, never permission. Background questions remain private and revision-safe; total provider reservations share the configured hard budget. Compare held-out retrieval versus full context before any answer-quality claim; mocked citations prove only deterministic acceptance behavior.
+
+**ITER-011 engineering evidence:** immutable policy snapshots, exact pgvector retrieval over a version/hash-filtered clause index, pinned small embeddings, required-rule passages, no-tool Agents SDK A3, exact citation/quote validation and private leased questions are implemented. Missing index/provider and stale expense revisions return guidance unavailable. Shared reservations conservatively count extraction, indexing, question embeddings and answers; failures cannot refund uncertain spend. Nine new real PostgreSQL/pgvector tests and four migration/cap/read checks pass. SDK calls and embeddings are explicit fakes in these tests; factual answer quality, cost and RAG-versus-full-context advantage remain unmeasured.
+
+Local PG17 image was replaced with pinned pgvector 0.8.6 after a private dump; existing volume retained and healthy. Hosted provider extensions and legacy public data remain untouched. Phase 3 publication `196ca5e` passed hosted CI ([run 37760499450](https://github.com/abanerjee23/UnLoop/actions/runs/37760499450)). No live model/provider/Gmail call, policy activation or new public deployment.
+
+### ITER-012 — Explicit submission and immutable manager partial release
+
+**Date / phase:** 8 October 2026 / Phase 5 and approved-data boundary in Phase 6
+
+**Hypothesis:** explicit submission of versioned eligible lines and transactional, idempotent manager releases can resolve nine lines independently while preserving the disputed tenth, employee privacy and immutable downstream amounts.
+
+**Acceptance before implementation:** preview eligible subset versus unresolved private draft lines; signed/expiring exact-line previews; only submitted snapshots visible in Manager mode; line-specific questions, employee answers, held/returned differences and explicit resubmission of material edits; approved facts cannot change; same employee/date/Meal type remains occupied across approved history; double/concurrent/stale approvals never create duplicate releases or processing-ready records. Both inboxes identify exact lines and amounts. A separate read-only credential exposes only immutable approved snapshots with stable identities, excluding receipts, pending facts, discussions and tokens. Teams fallback is copyable in-app context, not proof of a live Teams launch. Deterministic templates suffice for focused question drafting; no new sending authority.
+
+Policy browser expansion exposed connection-pool/thread contention beyond session row locking. API admission is now bounded to eight concurrent requests per process, below its database pool and thread capacity, with a bounded busy response. A 64-read/32-thread real PostgreSQL burst and the held-owner-lock test both pass (1.08s combined). The next four-worker browser run passed all ordinary session/privacy checks and 14/16 overall; two Meal checks assumed queued structural validation completed inside Playwright's implicit five-second expectation. Those checks now use the documented 30-second validation/recovery allowance, matching the other evidence helpers. Assertions still require actual validated retained evidence; no retries or synthetic state bypass were added. Actual hosted latency remains unmeasured.
+
+Further browser checks exposed a concrete lost-cookie race: one failed read could clear a bad cookie before session bootstrap read it, causing an automatic empty replacement. A tab-scoped, nonsecret prior-use marker now requires explicit restart after prior use; it is UX state, never authorization. Both forged-cookie and deliberately lost-cookie regressions pass. Employee-to-Manager evidence assertions wait for the confirmed persona, preserving the 403 assertion. The latest 17-case stress run passed 16; the remaining duplicate-upload result assumed structural parsing completed in five seconds. It now uses the same 30-second intake allowance, and both evidence browser journeys pass in a focused run (19.1s total). Final combined browser/CI regression remains required; no four-worker reliability claim is made from these partial reruns.
+
+ITER-012 local engineering evidence (8 October): the ten-line scenario released nine claims for £270 while one stayed held, then explicitly resubmitted and separately released the corrected tenth for £45. Two browser journeys released £50, held £25 and subsequently released the corrected £20; original submitted/approved versions stayed unchanged. Concurrent duplicate requests created one processing-ready record; distinct requests for the same line had one success and one conflict. Private unresolved drafts and private material corrections stayed out of manager snapshots. No real reimbursement is claimed.
+
+A full intermediate backend run passed 364 cases and failed two new edge tests: optional Ground route filtering consulted the previous category, and the fake reread test lacked model configuration/expected the wrong existing HTTP status. The category filtering was corrected against the validated candidate facts; the test explicitly configures its fake adapter and expects the established 200 response. The subsequent focused category/reduction/approval run passed 20 cases. Employee voluntary reductions preserve the receipt amount, are capped by deterministic policy calculations, create revisions and survive rereads; models never control that input. Airport aliases are restricted to fixture-backed names and preserve city/airport distinctions and original evidence. New frozen paired policy fixtures/scoring keep missing human review, invalid citations and critical false permission from passing the quality gate. No provider baseline, savings, quality/latency improvement or Teams launch is inferred from these engineering results.
+
+The Docker build exposed source-map-js 1.2.1 in the frontend toolchain. The lockfile was updated to 1.2.2, the patched version in [GHSA-68fv-2mgg-jv7q](https://github.com/advisories/GHSA-68fv-2mgg-jv7q); npm audit now reports zero vulnerabilities and the frontend build passes. No major dependency migration was needed.
+
+
+### ITER-013 — Arize evaluations and bounded private telemetry
+
+**Date / scope:** 8 October 2026 / user-selected observability and evaluation migration, backlog item 3.
+
+**Hypothesis and acceptance:** preserving the frozen scorers while changing their experiment backend to Arize AX will provide inspectable comparisons and runtime metrics without changing financial authority, collecting corrections, leaking private evidence or introducing unapproved model calls. Acceptance requires removal of Galileo, content-free manually constructed traces, explicit synthetic experiment uploads, unchanged missing-review/critical-error gates, bounded exporter failures and working local/Linux runtime. The selected GPT-6.1 Sol migration remains a separate next item.
+
+**Implementation and evidence:** extraction, policy answers and embeddings emit validated OpenInference spans to fixed region-specific Arize OTLP endpoints. Runtime export uses an isolated child with a deadline; failures return fixed statuses and cannot change business records. The Arize SDK receives named evaluation scores from the frozen local scorers; default imports are private local previews with zero model/judge calls, and held-out exposure/upload remain explicit. Initial HTTP harness assumptions were corrected; actual payload testing then found inherited OpenTelemetry headers were merged into the request despite explicit headers. Clearing ambient OpenTelemetry settings in the child fixed that privacy issue. Native full regression: 381 passed, zero skips, 227.32 seconds; focused real OTLP/SDK/gate tests and Linux packaged web/worker/restart checks pass. Fixtures and thresholds are unchanged.
+
+**Decision and remaining evidence:** keep the Arize AX integration. Private account ingestion and actual model/held-out quality, cost, latency and savings remain unmeasured; no external account/project/dataset/experiment or paid call occurred. The reviewed policy is active locally and services were restarted. Continue one backlog item at a time. [Integration](../integrations/ARIZE.md), [validation](../validation/ARIZE_LOCAL.md).
+
+
+### ITER-014 — GitHub consolidation and current documentation
+
+**Date / scope:** 8 October 2026 / owner-requested checkpoint before backlog step 4.
+
+**Problem and decision:** completed local work was published on stacked branches while several current documents still described policy decisions and implemented workflows as pending. Consolidate the full candidate through [PR #5](https://github.com/abanerjee23/UnLoop/pull/5) into `main`, preserving commit history. Both earlier PR heads #3/#4 are ancestors of the consolidated branch. The original Cloud snapshot's application, frontend, scripts and dependency files match its rebased local handoff commit; later local fixes remain included. Source integration does not complete live provider or hosted release gates.
+
+**Documentation and verification:** reconcile the root vision/README/architecture, A1 category/SDK contract, migration/Gmail/deployment guides, case study, ledger and navigation. Record the active reviewed policy, Arize AX integration, current Luna code and selected next Sol migration. Label dated audits/validation records as historical and retain their measurements. Relative links/heading anchors, ten archived-original hashes, original BUILD_PLAN, frozen labels and release gates pass preservation checks. This checkpoint changes documentation only; the preceding exact implementation `50ab8b0` has green 382-backend/20-browser CI. The final source/docs commit and merge checks are authoritative in GitHub. Paid calls, account setup and deployment remain separate pending steps.
+
+**Next:** [backlog step 4](BUILD_STATUS.md#live-pending-backlog), GPT-6.1 Sol settings and cost controls, after this checkpoint.

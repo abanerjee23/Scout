@@ -1,7 +1,7 @@
 # Gmail evidence integration
 
-Updated: 7 October 2026  
-Status: agreed design; GCP setup is user-confirmed, full-version implementation/connectivity unverified.
+Updated: 8 October 2026
+Status: Phase 1C implemented and locally tested; actual full-version Gmail consent/bytes and hosted deployment remain unverified. See [validation](../validation/PHASE_1C_VALIDATION.md) and [deployment handoff](PHASE_1C_DEPLOYMENT.md).
 
 [Vision](../../Unloop_Vision.md), [architecture](../../Architecture.md) and [build plan](../../BUILD_PLAN.md) govern the product. This document specifies optional Gmail intake alongside independent JPEG/PNG/PDF uploads.
 
@@ -26,7 +26,7 @@ Read-only Gmail scope can read broadly within the mailbox; Google does not enfor
 
 Use receipt/invoice/booking/ticket terms and supported attachments as candidate discovery, not proof of a claim. Email arrival is not the receipt/service date. A booking lookback can include earlier confirmations; disclose it and validate the user's requested report dates separately. Ambiguous matches require review rather than silent inclusion/exclusion.
 
-Candidate initial scan bounds, inherited from the hackathon for validation: report duration at most 31 days, search from 90 days before report start through seven days after its end, at most 15 candidate messages, at most ten imported files and 40 MiB aggregate bytes. Common file bounds are 10 MiB/file and ten pages. These are proposed settings, not a guarantee of completeness; record confirmed values and truncated results in Phase 1. Body-only receipts, old bookings and unsupported formats may require manual upload. Never bypass scan bounds after ambiguous date parsing.
+Candidate initial scan bounds, inherited from the hackathon for validation: report duration at most 31 days, search from 90 days before report start through seven days after its end, at most 15 candidate messages, at most ten imported files and 40 MiB aggregate bytes. Common file bounds are 10 MiB/file and ten pages. These bounds are implemented and deterministically tested; they do not guarantee completeness. Actual consent/retrieval and truncated/partial-result behavior still need live validation. Body-only receipts, old bookings and unsupported formats may require manual upload. Never bypass scan bounds after ambiguous date parsing.
 
 Use timeouts/bounded backoff, durable import/scan IDs and revision checks. Repeating a scan reuses already imported attachment identities and document hashes. Partial failures retain prior files and refresh their UI state; a retry must not duplicate expense candidates. Capture failure categories without exposing tokens/email content in logs.
 
@@ -34,7 +34,7 @@ Handle denied consent, wrong demo account, revoked/expired access, empty results
 
 ## Disconnect and data lifecycle
 
-Disconnect removes encrypted connection credentials and stops access; support revocation with Google. Already imported receipt evidence is a separate retained app record, so explain its retention and offer deletion under the app's policy. Session expiry must clean up connection credentials and not leave an orphan reusable token. Managers inspect submitted evidence only, not the mailbox or tokens. Key rotation, token refresh/reconnect and deletion need tests before any real-data claim.
+Disconnect removes encrypted connection credentials and stops access, with a separate provider revocation outcome. The worker sweeps expired-session credentials. Deterministic PostgreSQL/provider tests cover refresh, key rotation, disconnect races and expiry cleanup; actual Google consent/revocation/refresh still require live proof. Managers inspect submitted evidence only, never the mailbox or tokens. Imported evidence remains retained after disconnect or session expiry. No user-facing evidence deletion or automated retention service is implemented; immutable submission/release history also prevents deleting associated review records. A supported retention/deletion policy and verified backup/restore remain necessary before real-data use.
 
 ## Future users connecting their own Gmail
 

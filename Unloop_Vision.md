@@ -2,9 +2,9 @@
 
 **Prepare expenses. Understand policy. Resolve blockers.**
 
-Updated: 7 October 2026  
-Owner: Abhinav  
-Status: Phase 1A confirmed-report workspace verified locally and on live Supabase and merged. Phase 1B retained uploads/validation jobs implemented with hosted/live gates pending; Gmail/AI/review remain unimplemented. See [current ledger](docs/product/BUILD_STATUS.md).
+Updated: 8 October 2026. Owner: Abhinav.
+
+Status: Local expense preparation, policy guidance, explicit submission, manager partial approvals and approved-data API are implemented and tested. Reviewed synthetic policy is active locally; Arize AX integration is implemented. Actual model quality, Arize account ingestion, Gmail and Railway acceptance remain pending. GPT-6.1 Sol migration follows the GitHub/documentation checkpoint. See [current ledger](docs/product/BUILD_STATUS.md).
 
 This is the product source of truth. [Architecture](Architecture.md) defines system responsibilities and [build plan](BUILD_PLAN.md) defines delivery order. The 7 October decisions below supersede the previous login, manual-only intake and employee-led post-submission split design. Previous versions are preserved in [archive](archive/README.md). The hackathon plan in the separate UnLoop folder is reference material, not this repository's governing plan.
 
@@ -76,11 +76,11 @@ Common fields are merchant, receipt date, original total, transaction currency a
 
 The UK-company POC uses GBP submission currency. Preserve original foreign-currency values and the full GBP conversion separately from the claim. Historical FX uses saved valid observations first, Frankfurter pinned to ECB next, and Open Exchange Rates as the agreed fallback. The conversion date must match the receipt date; wrong-date or unavailable observations leave **Conversion pending**. Weekend/holiday previous-rate exceptions remain unapproved. Reopening an expense never recalculates it automatically.
 
-The draft [synthetic policy](docs/policy/Synthetic_T&E_Policy.md) sets Meal limits of £15 Breakfast, £25 Lunch and £50 Dinner. Tips/service charges already in the receipt total are included in the limit. A £62 Dinner retains receipt value £62, claim £50 and excess £12, with **Adjusted to policy limit** and its clause. Report totals sum eligible GBP claims, not full receipt amounts.
+The owner-reviewed [synthetic policy](docs/policy/Synthetic_T&E_Policy.md), effective 1 October 2026 and active locally, sets Meal limits of £15 Breakfast, £25 Lunch and £50 Dinner. Tips/service charges already in the receipt total are included in the limit. A £62 Dinner retains receipt value £62, claim £50 and excess £12, with **Adjusted to policy limit** and its clause. Report totals sum eligible GBP claims, not full receipt amounts.
 
 Only one Meal claim per demo employee, receipt date and meal type is permitted across that session's reports: one restaurant, one final receipt. Several smaller receipts cannot fill one allowance. Duplicate evidence cannot become another claim. Excluded lines release the claim slot; approved history preserves it.
 
-For Air, a server-seeded employee grade determines the maximum cabin: A–C Economy, D–F Premium Economy, G Business. Lower cabins are allowed. Grade is not user-editable or inferred from a Gmail address. Missing grade pauses assessment; unsupported cabin self-declaration cannot establish compliance. Managers cannot override policy. Ground Transport eligibility/caps/charge rules remain to be agreed before assessment is enabled. The synthetic policy also needs an effective date before activation.
+For Air, a server-seeded employee grade determines the maximum cabin: A–C Economy, D–F Premium Economy, G Business. Lower cabins are allowed. Grade is not user-editable or inferred from a Gmail address. Missing grade pauses assessment; unsupported cabin self-declaration cannot establish compliance. Managers cannot override policy. Ground Transport covers documented business Taxi/Public Transport, includes listed tips/service charges, has no extra cap or mode preference, allows missing routes and excludes separately identified cancellation/penalty charges. Business eligibility and the penalty amount, including zero, must be established. GBP amounts use Decimal ROUND_HALF_UP per line; totals sum rounded claims. Receipts before the active policy date remain unassessed.
 
 ## 5. Policy assistance and uncertainty
 
@@ -120,4 +120,4 @@ Proposed first targets are 95% required-field accuracy on supported readable hel
 
 Retain separate development/held-out datasets and evaluate RAG against a full-policy-context baseline. Trace model/prompt/schema/policy versions, latency and cost from the first live run. Record measured product iterations in the [iteration log](docs/product/PRODUCT_ITERATION_LOG.md); this engineering process does not introduce learning from customer corrections.
 
-Phase 0 retains its synthetic preview, schema and fixtures. Phase 1A now adds persona sessions, deterministic chat-led header review/confirmation and PostgreSQL-backed report reopen, verified locally and on live Supabase, merged in PR #1. Phase 1B adds retained manual evidence and recoverable structural-validation jobs; its own provider gate remains pending. Gmail and all later workflows remain to be built; no complete Phase 1 or real receipt-processing claim is made. See [Phase 1A evidence](docs/validation/PHASE_1A_VALIDATION.md).
+Phase 0 retains its synthetic preview, schema and fixtures. Phase 1A now adds persona sessions, deterministic chat-led header review/confirmation and PostgreSQL-backed report reopen, verified locally and on live Supabase, merged in PR #1. Phase 1B adds retained manual evidence and recoverable structural-validation jobs; its own provider gate passed before PR #2 merged. Gmail is locally implemented with live consent/attachment/deployment gates pending. Supported category preparation, grounded policy guidance, explicit submission, immutable partial approval and the approved-release API pass local engineering checks. Arize AX provides the implemented evaluation/telemetry integration; credentials and real ingestion remain pending. The current code pins gpt-6-luna; the owner selected gpt-6.1-sol for the next model/cost-control migration. No complete live release or measured quality/savings claim is made. See [Phase 1A evidence](docs/validation/PHASE_1A_VALIDATION.md).

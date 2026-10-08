@@ -2,20 +2,20 @@
 
 **Policy source for the proof of concept**
 
-Version: 0.2  
-Updated: 7 October 2026  
-Owner: Abhinav  
-Status: Draft for owner review  
-Effective date: Not set — do not activate this source until approved  
-Current coverage: Air and Meals rules defined; Ground Transport rules pending
+- Version: 0.3
+- Updated: 8 October 2026
+- Owner: Abhinav
+- Status: Owner reviewed and approved for local activation
+- Effective date: 1 October 2026
+- Current coverage: Air, Meals and Ground Transport
 
-[Product vision](../../Unloop_Vision.md) and [architecture](../../Architecture.md) define the current demo. Revision 0.2 updates demo ownership and partial approval language; limits and clause identifiers are unchanged. This source remains draft/inactive until its effective date and activation are approved.
+[Product vision](../../Unloop_Vision.md) and [architecture](../../Architecture.md) define the current demo. Revision 0.3 adds reviewed Ground Transport rules, the effective date and GBP rounding convention. Existing Air and Meal limits and clause identifiers are unchanged. Abhinav completed policy review on 8 October 2026 and authorized local activation.
 
 ## 1. Purpose and applicability
 
 This synthetic policy exists to test Unloop's expense assessment and in-product policy guidance. It is not the policy of a real employer and must not be used for real reimbursement decisions.
 
-Once approved and activated, this version applies to Air and Meals in the UK-company proof of concept. The employee's report currency is GBP. Ground Transport rules are pending.
+This version applies to Air, Meals and Ground Transport in the UK-company proof of concept for receipts dated on or after 1 October 2026. The employee's report currency is GBP. Earlier receipts remain outside this active version and cannot be submitted under it.
 
 Clause IDs are stable citation labels for Unloop. A later policy version may amend a clause, but must not reuse its ID for a different rule. Unloop must show the policy version and applicable clause when explaining a finding.
 
@@ -145,7 +145,23 @@ Unloop must not combine multiple receipts into one Meal expense, add several sma
 
 Two uploads that are verified as copies of the same receipt are a duplicate-upload problem, not two policy receipts. Unloop should retain one evidence record and must not create or pay a second claim.
 
-## 5. Currency and conversion
+## 5. Ground Transport
+
+### GROUND-01 — Business journeys
+
+Taxi and Public Transport are eligible for documented business journeys. Route fields are optional. No mode preference applies. Business purpose must be established; missing or ambiguous information pauses the claim for clarification.
+
+### GROUND-02 — Receipt amount and excluded penalties
+
+Eligible business transport uses the full receipt amount, including listed tips and service charges. Separately identified cancellation and penalty charges are excluded before the GBP claim is approved. The business purpose and penalty amount, including confirmation of zero penalties, must be established before the line can proceed.
+
+For foreign-currency expenses, convert and round the full receipt amount and separately identified penalty amount to GBP using the same receipt-date rate, then deduct the rounded penalty amount from the rounded full amount. Preserve the original receipt total and show the excluded amount.
+
+### GROUND-03 — Ground Transport limits
+
+No additional amount cap applies to eligible Taxi or Public Transport in this synthetic demo. The owner approved this rule as part of the policy review.
+
+## 6. Currency and conversion
 
 ### CUR-01 — Submission currency
 
@@ -170,7 +186,11 @@ Unloop first uses a saved acceptable rate for that source, currency pair and dat
 
 The fallback rate may have a different published basis from the ECB rate; Unloop must preserve the provider and actual rate record used rather than present the sources as identical.
 
-## 6. Interpretation and user-facing outcomes
+### GBP rounding convention
+
+Calculate money using Decimal arithmetic. Round GBP line amounts to two decimal places using ROUND_HALF_UP: round to the nearest penny, with exact halfway values rounded up. For example, £17.0746 becomes £17.07 and £17.075 becomes £17.08. Apply the reviewed allowance or penalty deduction to these rounded amounts. Report and approved-release totals sum the rounded line claim amounts so the displayed lines agree with their total. AI does not control the arithmetic.
+
+## 7. Interpretation and user-facing outcomes
 
 Unloop may produce the following user-facing outcomes for rules covered by this policy:
 
@@ -188,15 +208,15 @@ Unloop may produce the following user-facing outcomes for rules covered by this 
 
 When this policy contains no applicable rule, Unloop must say that the current policy does not answer the question. Absence of a rule is not permission and must not be converted into an invented restriction.
 
-## 7. Source precedence and version use
+## 8. Source precedence and version use
 
-Once this policy is approved, its governing clauses take precedence over supporting FAQ or guidance material. Supporting material may explain a rule but cannot change an allowance, create an exception or override a clause.
+The approved governing clauses take precedence over supporting FAQ or guidance material. Supporting material may explain a rule but cannot change an allowance, create an exception or override a clause.
 
 Unloop must assess an expense and answer related policy questions using the same applicable policy version. It must record the version used. A newer draft must not silently replace the version attached to an existing assessment or approved report.
 
-The effective-date rule for choosing between two active policy versions is not yet agreed. Until it is, only one approved version may be active in the POC.
+Only this approved version is active in the POC. Receipts dated before its effective date remain unassessed under this version. Before activating a later version, define historic-version selection explicitly; existing assessments and approved records retain their recorded version.
 
-## 8. Explicitly outside this policy version
+## 9. Explicitly outside this policy version
 
 This version does not define or assess:
 
@@ -207,17 +227,10 @@ This version does not define or assess:
 - corporate discounts or negotiated fares;
 - checked baggage, seat selection, upgrades, change fees or other ancillary charges;
 - other Meal rules not expressly defined in section 4;
-- Ground Transport allowances; or
 - Accommodation.
 
 Unloop must not infer a rule for these topics from common practice or open-web content.
 
-## 9. Decisions required for the next policy revision
+## 10. Decisions required for a later policy revision
 
-Before this policy can cover the full starting POC, agree and add:
-
-1. Taxi and Public Transport eligibility rules, including whether the policy prefers one mode in defined circumstances.
-2. Treatment of tips, cancellation fees and other Ground Transport charges.
-3. The effective date and historic-version selection rule.
-4. The same-date FX rule for weekends, holidays and rates not yet published.
-5. The GBP rounding rule used for receipt conversions, capped claim amounts and report totals.
+Before introducing multiple policy versions, agree the historic-version selection rule. Accommodation and additional airfare restrictions require separately reviewed clauses before implementation. The current version retains the exact receipt-date FX rule, including weekends and holidays; an unavailable acceptable same-date rate keeps the expense Conversion pending.

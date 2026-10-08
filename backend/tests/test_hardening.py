@@ -152,7 +152,7 @@ def test_hardening_upgrade_backfill_downgrade_reupgrade(postgres):
         ) as client:
             client.cookies.update(cookie)
             assert client.get(f"/api/reports/{report['id']}").json() == report
-            assert client.get("/api/readiness").json()["schemaVersion"] == "0003_phase1b_evidence"
+            assert client.get("/api/readiness").json()["schemaVersion"] == "0008_phase5_review"
 
 
 def test_migration_missing_employee_fails_atomically(postgres):
@@ -195,3 +195,36 @@ def test_migration_missing_employee_fails_atomically(postgres):
                 )
                 == 0
             )
+
+
+def test_read_requests_do_not_wait_for_a_mutation_owner_lock(client, postgres):
+    """Polling reads cannot occupy the whole thread pool waiting on one session lock."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    from sqlalchemy import select
+    from sqlalchemy.orm import Session
+    from unloop.models import DemoSession
+
+    assert (
+        client.post("/api/session", json={}, headers={"Origin": "https://testserver"}).status_code
+        == 201
+    )
+    with Session(postgres[1]) as db, db.begin():
+        db.scalar(select(DemoSession).with_for_update())
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            reads = [pool.submit(client.get, "/api/session") for _ in range(4)]
+            for read in reads:
+                assert read.result(timeout=2).status_code == 200
+
+
+def test_polling_burst_completes_without_pool_thread_starvation(client):
+    from concurrent.futures import ThreadPoolExecutor
+
+    assert (
+        client.post("/api/session", json={}, headers={"Origin": "https://testserver"}).status_code
+        == 201
+    )
+    with ThreadPoolExecutor(max_workers=32) as pool:
+        reads = [pool.submit(client.get, "/api/session") for _ in range(64)]
+        for read in reads:
+            assert read.result(timeout=5).status_code == 200
