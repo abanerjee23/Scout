@@ -4,7 +4,7 @@
 
 Scout helps employees turn receipts into expense reports that managers can review. It brings receipt preparation, policy guidance and questions about individual expenses into one workspace, so a disputed item does not have to hold up the rest of a claim.
 
-The goal is to reduce preparation effort while keeping financial decisions accurate and under human control. The repository retains the UnLoop name.
+The goal is to reduce preparation effort while keeping financial decisions accurate and under human control.
 
 ## The problem
 
