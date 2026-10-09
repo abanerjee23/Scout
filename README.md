@@ -4,7 +4,7 @@
 
 Scout helps employees turn receipts into expense reports that managers can review. It brings receipt preparation, policy guidance and questions about individual expenses into one workspace, so a disputed item does not have to hold up the rest of a claim.
 
-An AI product management portfolio project by **Abhinav**, exploring how to reduce preparation effort while keeping financial decisions accurate and under human control. The repository retains the UnLoop name.
+The goal is to reduce preparation effort while keeping financial decisions accurate and under human control. The repository retains the UnLoop name.
 
 > **Project status:** a working local demo, with production readiness and measured user outcomes still to be established. The Employee/Manager switch demonstrates both journeys within one session; it is not production multi-user authentication. See the [delivery ledger](docs/product/BUILD_STATUS.md) for dated evidence and remaining release requirements.
 
@@ -86,7 +86,7 @@ Confirm the report details, upload a sample receipt and inspect its evidence. Ex
 | Read next | What you will find |
 | --- | --- |
 | [Product vision](Unloop_Vision.md) | Users, scope, journeys and product boundaries |
-| [Product case study](docs/product/PORTFOLIO_CASE_STUDY.md) | AI PM judgment, tradeoffs and demonstrated iteration |
+| [Product case study](docs/product/PORTFOLIO_CASE_STUDY.md) | Product decisions, tradeoffs and evidence from iteration |
 | [Delivery ledger](docs/product/BUILD_STATUS.md) | Dated implementation evidence and remaining work |
 | [Iteration log](docs/product/PRODUCT_ITERATION_LOG.md) | Hypotheses, results and decisions |
 | [Architecture](Architecture.md) | System design and trust boundaries |
