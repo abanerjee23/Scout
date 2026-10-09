@@ -1,124 +1,93 @@
-# Unloop
+# Scout
 
-Expense report preparation with an Employee/Manager demo workspace.
+**Prepare expenses. Understand policy. Resolve blockers.**
 
-**Development moved to the local Mac on 8 October 2026.** The preserved Cloud fixes, local category/policy/submission/partial-approval workflow and Arize migration are consolidated through [PR #5](https://github.com/abanerjee23/UnLoop/pull/5) for `main`. Development continues on `codex/local-end-to-end`; live release gates remain pending. See [local development and handoff](docs/product/LOCAL_DEVELOPMENT.md) for the current run/test workflow.
+Scout helps employees turn receipts into expense reports that managers can review. It brings receipt preparation, policy guidance and questions about individual expenses into one workspace, so a disputed item does not have to hold up the rest of a claim.
 
-**Current implementation: local end-to-end engineering candidate on FastAPI/Python; live release gates pending.** An employee can describe a report to Astra, review/correct its name, explicit dates and business purpose, confirm it, and reopen the saved report. PostgreSQL owns sessions, profiles and reports. Manager mode cannot inspect employee drafts. This is a persona demonstration, not production multi-user authentication.
+An AI product management portfolio project by **Abhinav**, exploring how to reduce preparation effort while keeping financial decisions accurate and under human control. The repository retains the UnLoop name.
 
-Astra report intake is **deterministic**, with no model/API call: it recognizes supported explicit date formats and asks for review when fields are missing or ambiguous. Confirmation and database writes belong to application code. No manager details are requested.
+> **Project status:** a working local demo, with production readiness and measured user outcomes still to be established. The Employee/Manager switch demonstrates both journeys within one session; it is not production multi-user authentication. See the [delivery ledger](docs/product/BUILD_STATUS.md) for dated evidence and remaining release requirements.
 
-Chat/workspace JPEG, PNG and PDF uploads share retained session-private evidence and leased PostgreSQL validation jobs. Consent-bound Gmail OAuth/scans and early Railway image packaging are locally tested; real Gmail and deployment remain unverified. Phase 2 adds saved Meal suggestions/corrections, bounded extraction jobs, Decimal calculations and exact-date FX adapters. Paid extraction and financial assessment are disabled by default; deterministic tests do not establish model quality or provider access. Air fields, evidence-backed cabin checks, owner-reviewed Ground Transport active locally, exact pgvector policy retrieval, explicit submission/inboxes, manager partial approval and a separately credentialed read-only approved-release API are implemented. Arize AX replaces Galileo for private telemetry and scored synthetic evaluations; real ingestion remains pending. The application now pins `gpt-6.1-sol` with medium reasoning effort and $2/M input, $10/M output reservation floors; paid calls remain disabled pending private credentials and a reviewed budget. Teams uses an in-app/copy fallback; an actual launch remains unconfigured. The separately labelled synthetic Meal preview remains at `/?preview=1`; its values are expected outcomes, not extracted/saved expenses.
+## The problem
 
-The latest published implementation `50ab8b0` passes **382 backend checks and 20 Chromium checks** with zero test skips in [GitHub CI](https://github.com/abanerjee23/UnLoop/actions/runs/37788782168). These are engineering checks, with fake model/FX adapters in workflow tests; they do not establish provider quality. Local PostgreSQL integration and real API/browser checks pass. Phase 1A hosted CI and [live Supabase smoke](docs/validation/SUPABASE_PHASE_1A_SMOKE.md) passed before PR #1 merged. Phase 1B passed hosted CI and its isolated live evidence gate, merged in PR #2; Phase 1C still needs real Gmail/deployment proof; this does not claim full Phase 1 completion. See [Phase 1A validation](docs/validation/PHASE_1A_VALIDATION.md).
+Employees collect receipts, re-enter details, interpret travel policy and explain exceptions across disconnected tools. Managers need enough context to approve eligible expenses without losing track of unresolved ones.
 
-Full-version repository: [abanerjee23/UnLoop](https://github.com/abanerjee23/UnLoop). The separate hackathon repository `abanerjee23/Un-Loop` is outside this work.
+The starting insight was a personal experience: roughly 60–90 minutes preparing an 18-line report. This is directional evidence, not a benchmark. The hypothesis is that bringing evidence, policy and review together reduces effort and back-and-forth; user research and matched-task testing still need to establish that benefit.
 
-## Run the workspace
+## How it works
 
-Requirements: Python 3.12/uv, Node 22.12+ and PostgreSQL. Docker Compose is a local database option; no worktree is required. From the repository root:
+1. **Describe the trip.** Scout proposes a report name, explicit dates and business purpose. The employee reviews and confirms them.
+2. **Add receipts.** Upload images or PDFs. An optional Gmail integration is designed to import attachments after explicit consent and a confirmed scan.
+3. **Review the preparation.** AI suggests receipt facts and answers questions using approved policy sources. The employee checks the evidence, corrects details and resolves missing information.
+4. **Submit ready expenses.** The employee previews and submits eligible lines. Unresolved lines stay private in the draft.
+5. **Approve and resolve.** The manager reviews submitted expenses, asks questions about specific lines and can approve eligible items while holding others. Approved records are available for downstream processing; the app does not make payments.
 
-```sh
-uv sync --frozen
-npm ci --prefix frontend
-docker compose up -d --wait
-# Create .env from .env.example only if absent; preserve an existing private .env.
+For example, under the demo policy, a **£62 dinner** keeps its original receipt value and shows a **£50 claim with £12 excluded**. If one expense in a ten-line report needs clarification, the manager can approve the other nine. Corrections to the remaining item require a fresh review and submission.
+
+The demo supports **Meals, Air and Ground Transport**, with claims in GBP and an owner-reviewed synthetic travel policy. Accommodation, payment execution and ERP posting are outside the current scope.
+
+## Where AI adds value
+
+AI helps interpret varied receipts and policy language. Predictable rules and consequential actions stay in application code or with people.
+
+| Responsibility | Who handles it | Why |
+| --- | --- | --- |
+| Read receipts and answer policy questions with citations | Bounded AI calls through the OpenAI Agents SDK | These tasks involve varied documents and language. |
+| Parse report headers, calculate amounts, apply policy limits and prevent duplicate claims | Application code | These outcomes need consistent, testable rules. |
+| Correct facts, submit expenses and approve claims | Employee and manager | People remain accountable for the final decisions. |
+
+Missing evidence, unavailable exchange rates and unsupported policy questions remain explicit unresolved states. AI cannot waive policy, submit a report or approve a claim. Human corrections survive later processing, and approved records preserve the exact version reviewed.
+
+## Architecture at a glance
+
+```mermaid
+flowchart TD
+    UI["Employee and manager workspace<br/>React"] <--> APP["Workflow and checks<br/>FastAPI + background worker"]
+    APP <--> AI["AI receipt reading and policy answers<br/>OpenAI Agents SDK"]
+    APP <--> DATA[("Evidence, reports and policy<br/>PostgreSQL + pgvector")]
+    APP --> OUT["Approved records for downstream processing"]
+    APP -. "Quality, latency and cost signals" .-> OBS["Evaluation and observability<br/>Arize AX"]
 ```
 
-For the local Compose database, set these server-only values in the ignored `.env`:
+The application validates AI suggestions and retains evidence and review history. Policy answers retrieve approved sources through pgvector; Arize AX supports evaluation and monitoring. Hosting is planned on Railway with Supabase PostgreSQL. Live integration validation remains separate; see the [architecture guide](Architecture.md) for details.
 
-```dotenv
-DATABASE_URL=postgresql://unloop:unloop_local_dev@127.0.0.1:15432/unloop
-TEST_DATABASE_URL=postgresql://unloop:unloop_local_dev@127.0.0.1:15432/unloop
-APP_ORIGIN=http://127.0.0.1:5173
-SESSION_COOKIE_SECURE=false
-SESSION_TTL_SECONDS=28800
-```
+## How success will be measured
 
-These are public local-development credentials for a database bound to localhost. For a non-production Supabase database, configure its actual PostgreSQL connection/TLS options securely instead. Do not paste real service credentials into docs/chat or put them in frontend variables. No Supabase Auth keys, model keys or Gmail credentials are needed for manual evidence validation.
+Evaluation separates **working software**, **model quality** and **user value**: each needs its own evidence.
 
-Apply migrations explicitly before starting the API:
+| Product question | Proposed measure |
+| --- | --- |
+| Does preparation take less effort? | At least 30% less active preparation time on matched manual and assisted tasks, measuring system waiting time separately. |
+| Can employees trust extracted facts? | At least 95% required-field accuracy on supported, readable held-out receipts; no silently accepted wrong critical financial facts in release cases. |
+| Is policy guidance useful and grounded? | At least 90% correct answers with supporting citations, assessed with human review. Compare retrieval against a full-policy-context baseline. |
+| Do eligible claims progress safely? | Verify partial approval, private drafts, duplicate prevention and unchanged approved records through database and browser tests. |
+| Is the experience practical to operate? | Track latency, failed jobs, retries, token usage and cost per workflow, with persistent limits on paid calls. |
 
-```sh
-uv run --env-file .env alembic upgrade head
-uv run --env-file .env uvicorn unloop:create_app --factory --host 127.0.0.1 --port 5001
-```
+**These are targets and evaluation methods, not achieved product results.** Held-out examples are reserved for evaluation. Workflow tests do not establish model accuracy or user-time savings.
 
-In another terminal:
+## Current progress
 
-```sh
-npm run dev --prefix frontend
-```
+The core preparation, submission and partial-approval workflows are implemented locally. Database and browser tests exercise them with controlled inputs and fake model/FX responses. Validation records identify which revision and behaviour each check covers.
 
-Open [the workspace](http://127.0.0.1:5173). Vite proxies `/api` to FastAPI on port 5001. Use the exact `APP_ORIGIN`; a different hostname such as `localhost` versus `127.0.0.1` is a different origin. The app does not silently load `.env`; the `uv --env-file` commands do.
+Still to validate: complete held-out model quality, real Gmail journeys, hosted deployment and recovery, and user-time, latency and cost outcomes. Production also requires persistent identity, genuine role permissions and a data-retention process. Paid capabilities require explicit configuration and budget controls.
 
-Try: “Prepare my London expense report for 1–4 October 2026 for a client workshop.” Review/correct the proposed header, then choose **Confirm and create report**. Reload or use Your reports to reopen it. Switch to Manager: drafts disappear and direct draft API reads are blocked. Switch back to Employee to reopen them.
+## Try it locally
 
-The default session lasts eight hours from creation, without sliding renewal. Its opaque bearer is in a host-only httpOnly SameSite=Lax cookie; only its SHA256 hash is stored. Secure cookies are the default. `SESSION_COOKIE_SECURE=false` is permitted only for explicit HTTP localhost development. Mutations require the exact allowed Origin and a session-bound CSRF header, with JSON commands or the one bounded multipart evidence endpoint; bootstrap requires Origin/JSON before any cookie exists. Unknown/expired sessions are rejected and their cookies cleared. Starting a new session does not recover expired-session reports. Fixed demo grade C is server-seeded and not editable.
+Follow the [local setup and validation guide](docs/product/LOCAL_DEVELOPMENT.md) for dependencies, configuration, database migrations and service commands. Report creation and manual receipt validation work without model credentials. Use synthetic receipts for the demo.
 
-`GET /api/health` is liveness only. `GET /api/readiness` checks migrated PostgreSQL; unavailable storage gives recoverable 503 copy. The API never creates tables automatically. `docker compose stop` retains local DB data; do not remove its volume unless you intentionally want to discard local demo data.
+Once running, try:
 
-## Deterministic intake boundary
+> “Prepare my London expense report for 1–4 October 2026 for a client workshop.”
 
-Supported date input: `2026-10-01 to 2026-10-04`, `1–4 October 2026`, `30 September 2026 to 4 October 2026`, and a single explicit date for a one-day report. English month names are supported. Relative dates, ambiguous numeric dates, missing years and partly specified ranges are not guessed; fill the review fields instead. Years must be 2000–2100; end must not precede start. Report names are 3–120 characters, purpose 5–500, with whitespace trimmed and control characters rejected.
+Confirm the report details, upload a sample receipt and inspect its evidence. Extraction and live policy answers need the separately configured providers; manual validation confirms file structure, not extracted expense facts.
 
-A proposal makes no report write. A signed session-bound proposal expires after 20 minutes. Explicit confirmation revalidates all header fields and creates a draft. Repeating the same confirmation returns the same report; changing an already confirmed proposal gives 409. Owner-row locking and a database uniqueness constraint protect concurrent confirmation. Session/identity/grade/manager fields supplied by a client are rejected.
+## Explore the project
 
-## Validate
-
-```sh
-uv run --env-file .env ruff check backend scripts
-uv run --env-file .env pytest -q
-uv run python -m unloop.fixture_check
-uv run python -m unloop.worker --check
-npm run build --prefix frontend
-cd frontend
-npx playwright install chromium
-cd ..
-uv run --env-file .env -- npm test --prefix frontend -- --workers=2
-```
-
-`TEST_DATABASE_URL` must reference a dedicated test/development PostgreSQL database. Tests create/drop uniquely named schemas and apply actual Alembic migrations; they never truncate application tables in the public schema. The backend tests cover cookie/expiry, CSRF, ownership, grade/persona spoofing, validation, concurrent confirmation and restart. Browser workspace tests start a real API with a separate disposable schema and do not intercept report/session responses. Ports 5001, 5002, 5173 and 5174 must be free during browser tests.
-
-Without `TEST_DATABASE_URL`, integration/browser workspace tests explicitly skip; that is not a passing 1A persistence gate. CI supplies PostgreSQL 17 and fails if required DB configuration is absent. The two retained preview tests stub health only. Screenshots/build output stay ignored. The browser server starts a real worker subprocess against its explicit isolated schema. Baseline browser tests use structural validation; dedicated Meal tests explicitly inject fake A1/FX adapters. Normal workers keep paid extraction disabled unless its reviewed runtime fields are configured.
-
-The fixture checker validates 24 labelled Meals (12 development / 12 held-out), **not model quality**. The A1 v0.1 schema and fixtures remain unchanged. Do not feed held-out expected labels into UI/model input. [Fixture guidance](fixtures/meals/README.md) records diversity and integration gaps.
-
-## Code and documentation map
-
-| Path | Purpose |
-|---|---|
-| `backend/unloop/api.py` | Authorized sessions/personas/proposals/confirmed reports/readiness |
-| `backend/unloop/database.py`, `models.py` | PostgreSQL configuration, sessions/reports and evidence/jobs entities |
-| `backend/unloop/intake.py` | Pydantic inputs and bounded deterministic parsing |
-| `backend/migrations/` | Alembic migrations through 0008; [migration instructions](backend/migrations/README.md) |
-| `frontend/src/components/` | Astra intake, report list, saved workspace and shared EvidencePanel |
-| `frontend/src/SyntheticPreview.tsx` | Retained Phase 0 preview, separate from saved data |
-| `backend/tests/`, `frontend/tests/` | Deterministic, PostgreSQL, process-restart and browser checks |
-| `scripts/browser_test_server.py` | Real API/disposable DB for browser tests |
-| `.github/workflows/checks.yml` | Backend and browser CI with independent PostgreSQL services |
-
-Current completion and next work: [delivery ledger and live backlog](docs/product/BUILD_STATUS.md). Design sources: [vision](Unloop_Vision.md), [architecture](Architecture.md), [build plan](BUILD_PLAN.md), [A1 contract](docs/agents/Receipt_Extraction_Agent.md), [policy](docs/policy/Synthetic_T&E_Policy.md), [Gmail design](docs/integrations/GMAIL.md). The user-requested FastAPI replacement is recorded in architecture/iteration evidence; the build plan is preserved unchanged.
-
-[Historical audit](docs/product/CURRENT_STATE_AND_EXECUTION_PLAN.md), [iteration log](docs/product/PRODUCT_ITERATION_LOG.md), [delivery workflow](docs/product/DELIVERY_WORKFLOW.md), [supporting docs](docs/README.md), [archive](archive/README.md).
-
-## Evidence and worker
-
-After confirming a report, upload in chat or the workspace. Candidate limits: 10 MiB/file, ten pages/file and ten files/batch; multipart requests are bounded to 101 MiB including overhead, counted while streaming as well as declared length. The server validates actual JPEG/PNG/PDF signature/MIME, image structure/pixel bounds, PDF page/content structure (encrypted PDFs rejected) and SHA256. Parser subprocesses have a 15s wall deadline, 10s CPU and 512 MiB memory cap on Linux. An invalid batch writes nothing. Lists exclude originals/hashes; downloads check owner/persona and use attachment/nosniff/sandbox headers.
-
-Start the validation worker in another terminal:
-
-```sh
-uv run --env-file .env python -m unloop.worker
-# Or process at most one due job:
-uv run --env-file .env python -m unloop.worker --once
-```
-
-The worker commits a 30s lease before processing, retries transient validation failures at most three attempts with backoff, and reclaims expired leases. Tokens/revisions/lease expiry protect idempotent result writes. Explicit retry of failed evidence creates a new validation revision, retaining the original. Queued means the original is saved and waiting; validated means structural checks passed, not extracted/claim-ready. Exact byte duplicates reuse one document per owning session across reports, with separate report/chat/workspace provenance. No cross-session duplicate indicator is exposed. Session expiry denies access; demo bytes remain stored until database retention cleanup, which is separate future real-data readiness work.
-
-## Next gate
-
-Phase 1B [live Supabase evidence](docs/validation/PHASE_1B_VALIDATION.md) passed before PR #2 merged. The consolidated candidate has green hosted CI; actual consent/attachment/deployment gates remain for [Phase 1C](docs/validation/PHASE_1C_VALIDATION.md). The opt-in smoke is disabled after verified success; skipped is not new proof. Current private runtime fields and dashboard commands are in the [deployment handoff](docs/integrations/PHASE_1C_DEPLOYMENT.md). [Current delivery ledger](docs/product/BUILD_STATUS.md) records standing authorization and evidence without rewriting the historical audit or BUILD_PLAN.
-
-
-The local review workflow and limitations are recorded in [Phase 5 validation](docs/validation/PHASE_5_LOCAL.md). Policy assistance engineering is recorded in [Phase 4 validation](docs/validation/PHASE_4_LOCAL.md); the [frozen policy comparison](fixtures/policy/README.md) supplies paired RAG/full-context inputs and explicit human-scored gates. Scorers do not call providers or collect corrections. Current live configuration and release status are in [the delivery ledger](docs/product/BUILD_STATUS.md).
+| Read next | What you will find |
+| --- | --- |
+| [Product vision](Unloop_Vision.md) | Users, scope, journeys and product boundaries |
+| [Product case study](docs/product/PORTFOLIO_CASE_STUDY.md) | AI PM judgment, tradeoffs and demonstrated iteration |
+| [Delivery ledger](docs/product/BUILD_STATUS.md) | Dated implementation evidence and remaining work |
+| [Iteration log](docs/product/PRODUCT_ITERATION_LOG.md) | Hypotheses, results and decisions |
+| [Architecture](Architecture.md) | System design and trust boundaries |
+| [Supporting documentation](docs/README.md) | Policy, integrations, setup and validation records |
