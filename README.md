@@ -6,13 +6,11 @@ Scout helps employees turn receipts into expense reports that managers can revie
 
 The goal is to reduce preparation effort while keeping financial decisions accurate and under human control. The repository retains the UnLoop name.
 
-> **Project status:** a working local demo, with production readiness and measured user outcomes still to be established. The Employee/Manager switch demonstrates both journeys within one session; it is not production multi-user authentication. See the [delivery ledger](docs/product/BUILD_STATUS.md) for dated evidence and remaining release requirements.
-
 ## The problem
 
 Employees collect receipts, re-enter details, interpret travel policy and explain exceptions across disconnected tools. Managers need enough context to approve eligible expenses without losing track of unresolved ones.
 
-The starting insight was a personal experience: roughly 60–90 minutes preparing an 18-line report. This is directional evidence, not a benchmark. The hypothesis is that bringing evidence, policy and review together reduces effort and back-and-forth; user research and matched-task testing still need to establish that benefit.
+Scout brings the receipt, relevant policy and review conversation together around each expense. Employees can see what needs attention, and managers can act on eligible claims without blocking the entire report.
 
 ## How it works
 
@@ -24,7 +22,7 @@ The starting insight was a personal experience: roughly 60–90 minutes preparin
 
 For example, under the demo policy, a **£62 dinner** keeps its original receipt value and shows a **£50 claim with £12 excluded**. If one expense in a ten-line report needs clarification, the manager can approve the other nine. Corrections to the remaining item require a fresh review and submission.
 
-The demo supports **Meals, Air and Ground Transport**, with claims in GBP and an owner-reviewed synthetic travel policy. Accommodation, payment execution and ERP posting are outside the current scope.
+The demo supports **Meals, Air and Ground Transport**, with claims in GBP and an owner-reviewed synthetic travel policy. Accommodation, payment execution and ERP posting are outside its scope.
 
 ## Where AI adds value
 
@@ -49,31 +47,25 @@ flowchart TD
     APP -. "Quality, latency and cost signals" .-> OBS["Evaluation and observability<br/>Arize AX"]
 ```
 
-The application validates AI suggestions and retains evidence and review history. Policy answers retrieve approved sources through pgvector; Arize AX supports evaluation and monitoring. Hosting is planned on Railway with Supabase PostgreSQL. Live integration validation remains separate; see the [architecture guide](Architecture.md) for details.
+The application validates AI suggestions and retains evidence and review history. Policy answers retrieve approved sources through pgvector; Arize AX supports evaluation and monitoring. See the [architecture guide](Architecture.md) for system details.
 
-## How success will be measured
+## Evaluation approach
 
 Evaluation separates **working software**, **model quality** and **user value**: each needs its own evidence.
 
-| Product question | Proposed measure |
+| Product question | Evaluation method |
 | --- | --- |
-| Does preparation take less effort? | At least 30% less active preparation time on matched manual and assisted tasks, measuring system waiting time separately. |
-| Can employees trust extracted facts? | At least 95% required-field accuracy on supported, readable held-out receipts; no silently accepted wrong critical financial facts in release cases. |
-| Is policy guidance useful and grounded? | At least 90% correct answers with supporting citations, assessed with human review. Compare retrieval against a full-policy-context baseline. |
+| Does preparation take less effort? | Compare active preparation time on matched manual and assisted tasks, measuring system waiting time separately. |
+| Can employees trust extracted facts? | Check required-field accuracy on held-out receipts and whether incorrect critical financial facts are caught before submission. |
+| Is policy guidance useful and grounded? | Review answer correctness and supporting citations. Compare retrieval against a full-policy-context baseline. |
 | Do eligible claims progress safely? | Verify partial approval, private drafts, duplicate prevention and unchanged approved records through database and browser tests. |
 | Is the experience practical to operate? | Track latency, failed jobs, retries, token usage and cost per workflow, with persistent limits on paid calls. |
 
-**These are targets and evaluation methods, not achieved product results.** Held-out examples are reserved for evaluation. Workflow tests do not establish model accuracy or user-time savings.
-
-## Current progress
-
-The core preparation, submission and partial-approval workflows are implemented locally. Database and browser tests exercise them with controlled inputs and fake model/FX responses. Validation records identify which revision and behaviour each check covers.
-
-Still to validate: complete held-out model quality, real Gmail journeys, hosted deployment and recovery, and user-time, latency and cost outcomes. Production also requires persistent identity, genuine role permissions and a data-retention process. Paid capabilities require explicit configuration and budget controls.
+Development and held-out examples are kept separate. Database and browser tests use controlled inputs to check workflow behaviour; model evaluation assesses receipt interpretation and policy answers independently.
 
 ## Try it locally
 
-Follow the [local setup and validation guide](docs/product/LOCAL_DEVELOPMENT.md) for dependencies, configuration, database migrations and service commands. Report creation and manual receipt validation work without model credentials. Use synthetic receipts for the demo.
+Follow the [local setup and validation guide](docs/product/LOCAL_DEVELOPMENT.md) for dependencies, configuration, database migrations and service commands. Report creation and manual receipt validation work without model credentials. Use synthetic receipts; the Employee/Manager switch lets you explore both journeys within one demo session.
 
 Once running, try:
 
@@ -87,7 +79,6 @@ Confirm the report details, upload a sample receipt and inspect its evidence. Ex
 | --- | --- |
 | [Product vision](Unloop_Vision.md) | Users, scope, journeys and product boundaries |
 | [Product case study](docs/product/PORTFOLIO_CASE_STUDY.md) | Product decisions, tradeoffs and evidence from iteration |
-| [Delivery ledger](docs/product/BUILD_STATUS.md) | Dated implementation evidence and remaining work |
 | [Iteration log](docs/product/PRODUCT_ITERATION_LOG.md) | Hypotheses, results and decisions |
 | [Architecture](Architecture.md) | System design and trust boundaries |
 | [Supporting documentation](docs/README.md) | Policy, integrations, setup and validation records |
